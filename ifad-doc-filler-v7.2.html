@@ -1,0 +1,3154 @@
+<!-- BUILD: 20260428-v5.7c -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IFAD — Compilatore Lettere v2.4</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{--bg:#0f0f11;--s:#1a1a1f;--s2:#222228;--bdr:rgba(255,255,255,0.07);--bdrh:rgba(255,255,255,0.18);--t:#f0f0f0;--mu:#777;--ac:#7c6af7;--ag:rgba(124,106,247,0.13);--gr:#4ade80;--gbg:rgba(74,222,128,0.07);--rd:#f87171;--rbg:rgba(248,113,113,0.08);--am:#fbbf24;--abg:rgba(251,191,36,0.08)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t);min-height:100vh;padding:36px 20px}
+.wrap{max-width:840px;margin:0 auto}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ac);box-shadow:0 0 12px var(--ac);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+h1{font-size:21px;font-weight:500;letter-spacing:-.02em}
+.sub{font-size:13px;color:var(--mu);margin-top:3px;margin-bottom:26px}
+
+/* Template strip */
+.tmpl-strip{display:flex;align-items:center;gap:14px;background:var(--s);border:1px solid var(--bdr);border-radius:12px;padding:14px 18px;margin-bottom:22px;flex-wrap:wrap}
+.tmpl-info{flex:1;min-width:140px}
+.tmpl-info .t1{font-size:13px;font-weight:500}
+.tmpl-info .t2{font-size:11px;color:var(--mu);margin-top:2px}
+.tmpl-right{display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0}
+.tmpl-state{font-size:11px;color:var(--gr);font-family:'DM Mono',monospace;display:none}
+
+/* File button — the only reliable cross-browser approach */
+.file-btn{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:var(--s2);border:1px solid var(--bdrh);border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;color:var(--t);transition:all .15s;user-select:none}
+.file-btn:hover{border-color:var(--ac);color:var(--ac)}
+.file-btn.loaded{border-color:rgba(74,222,128,.4);color:var(--gr)}
+.file-btn input[type=file]{width:0;height:0;opacity:0;position:absolute}
+
+/* Cards */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+@media(max-width:640px){.cards{grid-template-columns:1fr}}
+.card{background:var(--s);border:1px solid var(--bdr);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;transition:border-color .3s}
+.card.processing{border-color:rgba(124,106,247,.4)}
+.card.done{border-color:rgba(74,222,128,.4)}
+.card-head{display:flex;align-items:flex-start;gap:10px}
+.card-icon{font-size:18px;margin-top:1px;flex-shrink:0}
+.card-title{font-size:13px;font-weight:500;line-height:1.3}
+.card-sub{font-size:11px;color:var(--mu);margin-top:2px;line-height:1.4}
+.opt-tag{display:inline-block;font-size:10px;background:var(--abg);color:var(--am);border:1px solid rgba(251,191,36,.2);border-radius:4px;padding:1px 6px;margin-top:4px}
+
+/* Drop zone */
+.dz{border:1.5px dashed var(--bdr);border-radius:10px;padding:18px 12px;text-align:center;cursor:pointer;position:relative;background:var(--s2);min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:border-color .2s,background .2s}
+.dz:hover{border-color:var(--ac);background:rgba(124,106,247,.05)}
+/* The file input covers the entire drop zone */
+.dz input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.dz-lbl{font-size:12px;color:var(--mu);pointer-events:none}
+.dz-name{font-size:10px;color:var(--ac);font-family:'DM Mono',monospace;pointer-events:none;display:none;word-break:break-all;max-width:95%;line-height:1.3}
+
+/* Progress */
+.pbar{height:2px;border-radius:2px;background:var(--s2);overflow:hidden}
+.pbar-fill{height:100%;border-radius:2px;width:0;transition:width .3s,background .3s}
+
+/* Result box */
+.rbox{font-size:11px;padding:9px 11px;border-radius:8px;display:none;flex-direction:column;gap:5px}
+.rbox.ok{display:flex;background:var(--gbg);border:1px solid rgba(74,222,128,.25);color:var(--gr)}
+.rbox.err{display:flex;background:var(--rbg);border:1px solid rgba(248,113,113,.25);color:var(--rd)}
+.frow .lbl{font-size:9px;opacity:.6;text-transform:uppercase;letter-spacing:.07em}
+.frow .val{font-size:11px;font-weight:500;font-family:'DM Mono',monospace;word-break:break-all}
+.frow .val-input{width:100%;background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.15);color:var(--t);font-size:11px;font-weight:500;font-family:'DM Mono',monospace;padding:2px 0;outline:none;transition:border-color .2s}
+.frow .val-input:focus{border-bottom-color:var(--ac)}
+.frow .val-input:hover{border-bottom-color:rgba(255,255,255,0.3)}
+
+/* Generate */
+.gen-area{text-align:center;margin-bottom:20px}
+.gen-btn{padding:13px 44px;background:var(--ac);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:15px;font-weight:500;font-family:inherit;transition:opacity .15s,transform .1s;letter-spacing:-.01em}
+.gen-btn:hover:not(:disabled){opacity:.85}
+.gen-btn:active:not(:disabled){transform:scale(.98)}
+.gen-btn:disabled{opacity:.25;cursor:not-allowed}
+.gen-note{font-size:12px;color:var(--mu);margin-top:8px}
+/* Country picker panel */
+.cpanel{background:var(--s);border:1px solid var(--bdr);border-radius:14px;padding:18px 20px;margin-bottom:20px;display:none}
+.mpanel{background:var(--s);border:1px solid var(--bdr);border-radius:14px;padding:18px 20px;margin-bottom:12px}
+.mpanel-title{font-size:11px;font-weight:600;color:var(--ac);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.mpanel-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mfield{display:flex;flex-direction:column;gap:4px}
+.mfield label{font-size:11px;color:var(--mu);font-weight:500}
+.mfield input,.mfield select{background:var(--s2,#1e1e2a);border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;font-family:inherit;outline:none;transition:border-color .2s}
+.mfield input[type=date]{color-scheme:dark}
+.mfield input:focus,.mfield select:focus{border-color:var(--ac)}
+.mfield-full{grid-column:1/-1}
+.cpanel.visible{display:block}
+.cpanel-title{font-size:11px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--mu);margin-bottom:14px}
+.cpanel-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.cpanel-grid{grid-template-columns:1fr}}
+.cfield label{font-size:11px;color:var(--mu);display:block;margin-bottom:5px;letter-spacing:.04em;text-transform:uppercase}
+.cfield{position:relative}
+.csearch{width:100%;background:var(--s2);border:1px solid var(--bdrh);border-radius:8px;padding:9px 12px;color:var(--t);font-size:13px;font-family:inherit;outline:none;transition:border-color .2s}
+.csearch:focus{border-color:var(--ac)}
+.cdrop{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#1e1e24;border:1px solid var(--bdrh);border-radius:8px;max-height:200px;overflow-y:auto;z-index:100;display:none;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.cdrop.open{display:block}
+.cdrop-item{padding:8px 12px;font-size:13px;cursor:pointer;transition:background .1s}
+.cdrop-item:hover,.cdrop-item.active{background:var(--ag);color:var(--ac)}
+.cdrop-none{padding:8px 12px;font-size:12px;color:var(--mu);font-style:italic}
+
+/* Status bar */
+.gsbar{padding:11px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;align-items:center;gap:10px;display:none}
+.gsbar.load{background:var(--ag);border:1px solid rgba(124,106,247,.3);color:var(--ac);display:flex}
+.gsbar.ok{background:var(--gbg);border:1px solid rgba(74,222,128,.2);color:var(--gr);display:flex}
+.gsbar.err{background:var(--rbg);border:1px solid rgba(248,113,113,.2);color:var(--rd);display:flex}
+.spin{width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Preview */
+.preview{background:var(--s);border:1px solid var(--bdr);border-radius:14px;padding:20px;display:none;margin-top:4px}
+.preview-ttl{font-size:11px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--mu);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--bdr)}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:500px){.pgrid{grid-template-columns:1fr}}
+.pf{background:var(--s2);border-radius:8px;padding:10px 12px}
+.pf .pl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.pf .pv{font-size:13px;font-weight:500}
+.pf .pv.empty{color:var(--mu);font-style:italic;font-weight:400;font-size:12px}
+.dl-btn{width:100%;margin-top:14px;padding:12px;background:var(--gr);color:#071a0a;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;transition:opacity .15s}
+.dl-btn:hover{opacity:.88}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo"><div class="dot"></div><h1>IFAD — Compilatore Lettere</h1></div>
+  <p class="sub" style="color:var(--ac);font-size:10px;font-weight:500">v5.7 — Carica il template e i documenti disponibili. Il Word viene compilato automaticamente — le sezioni mancanti vengono eliminate. </p>
+
+  <!-- Template -->
+  <div class="tmpl-strip">
+    <div style="font-size:22px">📄</div>
+    <div class="tmpl-info">
+      <div class="t1">Template Word <span style="color:var(--rd);font-size:11px">*obbligatorio</span></div>
+      <div class="t2">Il file .docx da compilare (es. TEMPLATE_TRAVEL_.docx)</div>
+    </div>
+    <div class="tmpl-right">
+      <label class="file-btn" id="tmpl-btn">
+        <input type="file" accept=".docx" id="file-tmpl">
+        <span id="tmpl-btn-txt">📂 Scegli file .docx</span>
+      </label>
+      <div class="tmpl-state" id="tmpl-state"></div>
+    </div>
+  </div>
+
+  <!-- 3 cards -->
+  <div class="cards">
+    <div class="card" id="card-pp">
+      <div class="card-head">
+        <div class="card-icon">🛂</div>
+        <div>
+          <div class="card-title">Passaporto Nazionale</div>
+          <div class="card-sub">Estrae: nome, cognome, sesso, n° doc, scadenza</div>
+          <div class="opt-tag">OPZIONALE</div>
+        </div>
+      </div>
+      <label class="dz" id="dz-pp">
+        <input type="file" accept=".pdf,image/*" id="file-pp">
+        <div class="dz-lbl">📎 PDF o immagine — clicca o trascina</div>
+        <div class="dz-name" id="fname-pp"></div>
+      </label>
+      <div class="pbar"><div class="pbar-fill" id="prog-pp"></div></div>
+      <div class="rbox" id="res-pp"></div>
+    </div>
+
+    <div class="card" id="card-lp">
+      <div class="card-head">
+        <div class="card-icon">🇺🇳</div>
+        <div>
+          <div class="card-title">Laissez-Passer ONU</div>
+          <div class="card-sub">Estrae: numero documento, scadenza</div>
+          <div class="opt-tag">OPZIONALE</div>
+        </div>
+      </div>
+      <label class="dz" id="dz-lp">
+        <input type="file" accept=".pdf,image/*" id="file-lp">
+        <div class="dz-lbl">📎 PDF o immagine — clicca o trascina</div>
+        <div class="dz-name" id="fname-lp"></div>
+      </label>
+      <div class="pbar"><div class="pbar-fill" id="prog-lp"></div></div>
+      <div class="rbox" id="res-lp"></div>
+    </div>
+
+    <div class="card" id="card-maeci">
+      <div class="card-head">
+        <div class="card-icon">🇮🇹</div>
+        <div>
+          <div class="card-title">Carta MAECI</div>
+          <div class="card-sub">Estrae: numero documento, scadenza</div>
+          <div class="opt-tag">OPZIONALE</div>
+        </div>
+      </div>
+      <label class="dz" id="dz-maeci">
+        <input type="file" accept=".pdf,image/*" id="file-maeci">
+        <div class="dz-lbl">📎 PDF o immagine — clicca o trascina</div>
+        <div class="dz-name" id="fname-maeci"></div>
+      </label>
+      <div class="pbar"><div class="pbar-fill" id="prog-maeci"></div></div>
+      <div class="rbox" id="res-maeci"></div>
+    </div>
+  </div>
+
+  <!-- Country picker panel (shown when OCR is done) -->
+  <div class="cpanel" id="cpanel">
+    <div class="cpanel-title">🌍 Paesi — verifica o modifica</div>
+    <div class="cpanel-grid">
+      <div class="cfield">
+        <label>Nazionalità (paragrafo 3)</label>
+        <input class="csearch" id="cp-nat" type="text" placeholder="Cerca paese…" autocomplete="off">
+        <div class="cdrop" id="cd-nat"></div>
+      </div>
+      <div class="cfield">
+        <label>Paese di destinazione (missione)</label>
+        <input class="csearch" id="cp-dest" type="text" placeholder="Cerca paese…" autocomplete="off">
+        <div class="cdrop" id="cd-dest"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mission details panel -->
+  <div class="mpanel" id="mpanel">
+    <div class="mpanel-title">✏️ Dettagli Missione</div>
+    <div class="mpanel-grid">
+      <div class="mfield">
+        <label>Numero di Protocollo</label>
+        <input type="text" id="mp-refnum" placeholder="es. VR/123/26" value="VR">
+      </div>
+      <div class="mfield">
+        <label>Ruolo IFAD</label>
+        <select id="mp-role">
+          <option value="">— seleziona —</option>
+          <option value="an official">Official</option>
+          <option value="a consultant">Consultant</option>
+          <option value="an intern">Intern</option>
+          <option value="a staff member">Staff Member</option>
+        </select>
+      </div>
+      <div class="mfield">
+        <label>Data partenza (from)</label>
+        <input type="date" id="mp-from">
+      </div>
+      <div class="mfield">
+        <label>Data ritorno (to)</label>
+        <input type="date" id="mp-to">
+      </div>
+      <div class="mfield mfield-full">
+        <label>Scopo della lettera</label>
+        <select id="mp-purpose">
+          <option value="">— seleziona —</option>
+          <option value="the official mission">the official mission</option>
+          <option value="the issuance of a visa for the official mission">the issuance of a visa for the official mission</option>
+        </select>
+      </div>
+      <div class="mfield mfield-full">
+        <label>Scopo del viaggio (purpose of travel)</label>
+        <input type="text" id="mp-travelpurpose" placeholder="es. attend training workshop, conduct field mission…">
+      </div>
+      <div class="mfield">
+        <label>Data firma (Signed in Rome on)</label>
+        <input type="date" id="mp-signdate">
+      </div>
+    </div>
+  </div>
+
+  <div class="gsbar" id="gsbar"><div class="spin" id="gspin"></div><span id="gsmsg"></span></div>
+
+  <div class="gen-area">
+    <button class="gen-btn" id="genBtn" disabled>Genera documento Word compilato</button>
+    <div class="gen-note" id="genNote">Carica il template Word e almeno un documento</div>
+  </div>
+
+  <div class="preview" id="preview">
+    <div class="preview-ttl">Dati estratti — anteprima</div>
+    <div class="pgrid" id="pgrid"></div>
+    <button class="dl-btn" id="dlBtn">⬇ Scarica documento Word compilato</button>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  1. STATO & CONFIGURAZIONE                                                ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+// ── State ─────────────────────────────────────────────────────────────────────
+var extracted={pp:null,lp:null,maeci:null};
+var templateFile=null;
+var lastBlob=null;
+
+// ── Template ──────────────────────────────────────────────────────────────────
+document.getElementById('file-tmpl').onchange=function(){
+  var f=this.files[0]; if(!f) return;
+  templateFile=f;
+  var btn=document.getElementById('tmpl-btn');
+  btn.classList.add('loaded');
+  document.getElementById('tmpl-btn-txt').textContent='✓ '+shorten(f.name,32);
+  var st=document.getElementById('tmpl-state');
+  st.textContent=f.name; st.style.display='block';
+  recheck();
+};
+
+// ── Document cards ────────────────────────────────────────────────────────────
+['pp','lp','maeci'].forEach(function(id){
+  var inp=document.getElementById('file-'+id);
+  inp.onchange=function(){ if(this.files[0]) startOCR(id,this.files[0]); };
+  // Drag-drop on the label (which wraps the dz)
+  var dz=document.getElementById('dz-'+id);
+  dz.addEventListener('dragover',function(e){e.preventDefault();this.style.borderColor='var(--ac)';});
+  dz.addEventListener('dragleave',function(){this.style.borderColor='';});
+  dz.addEventListener('drop',function(e){
+    e.preventDefault(); this.style.borderColor='';
+    var f=e.dataTransfer.files[0];
+    if(f){ document.getElementById('file-'+id).files; startOCR(id,f); }
+  });
+});
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  2. HELPER CANVAS  (toCanvas · upscale · rotate · toBlob · bestAngle)     ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+// ── Canvas helpers ────────────────────────────────────────────────────────────
+async function toCanvas(file){
+  var isPDF=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
+  if(isPDF){
+    var ab=await file.arrayBuffer();
+    var pdf=await pdfjsLib.getDocument({data:ab}).promise;
+    var page=await pdf.getPage(1);
+    var vp=page.getViewport({scale:5}); // increased from 5→7 for better MRZ resolution
+    var c=document.createElement('canvas');
+    c.width=vp.width; c.height=vp.height;
+    await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+    return upscale(c,2000); // increased from 2000→3000
+  }else{
+    return new Promise(function(res){
+      var img=new Image();
+      img.onload=function(){
+        var c=document.createElement('canvas');
+        c.width=img.width; c.height=img.height;
+        c.getContext('2d').drawImage(img,0,0);
+        res(upscale(c,2000)); // increased from 2000→3000
+      };
+      img.src=URL.createObjectURL(file);
+    });
+  }
+}
+
+function upscale(c,minSide){
+  var s=Math.min(c.width,c.height);
+  if(s>=minSide) return c;
+  // Upscale in steps of 2x for better quality on very low-res images
+  var result=c;
+  while(Math.min(result.width,result.height)<minSide){
+    var n=document.createElement('canvas');
+    n.width=result.width*2; n.height=result.height*2;
+    var ctx=n.getContext('2d');
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+    ctx.drawImage(result,0,0,n.width,n.height);
+    result=n;
+  }
+  return result;
+}
+
+function rotate(src,angle){
+  if(!angle) return src;
+  var c=document.createElement('canvas'),ctx=c.getContext('2d');
+  if(angle===90||angle===270){c.width=src.height;c.height=src.width;}
+  else{c.width=src.width;c.height=src.height;}
+  ctx.translate(c.width/2,c.height/2);
+  ctx.rotate(angle*Math.PI/180);
+  ctx.drawImage(src,-src.width/2,-src.height/2);
+  return c;
+}
+
+function toBlob(c,scale){
+  scale=scale||1;
+  return new Promise(function(res){
+    if(scale===1){c.toBlob(res,'image/png');return;}
+    var s=document.createElement('canvas');
+    s.width=Math.round(c.width*scale); s.height=Math.round(c.height*scale);
+    s.getContext('2d').drawImage(c,0,0,s.width,s.height);
+    s.toBlob(res,'image/png');
+  });
+}
+
+async function bestAngle(canvas){
+  // Keywords covering passports from all regions
+  var KW=[
+    // Universal
+    'PASSPORT','PASSEPORT','PASAPORTE','PASSAPORTO','REISEPASS',
+    // Fields
+    'SURNAME','NOM','APELLIDO','COGNOME','NATIONALITY','NATIONALITE',
+    'EXPIRY','EXPIRATION','CADUCIDAD','SCADENZA',
+    // Orgs/countries
+    'UNITED NATIONS','MINISTRY','REPUBLIC','KINGDOM','FEDERATION',
+    // IFAD-specific
+    'LAISSEZ','MAECI','IFAD','FUNZIONARIO','SCADE',
+    // Asian passports
+    'KOREA','JAPAN','CHINA','INDIA','PAKISTAN','BANGLADESH',
+    // African passports
+    'KENYA','ETHIOPIA','NIGERIA','GHANA','TANZANIA',
+    // MRZ type indicators
+    'PMKOR','PVNOR','PITAL','PCCAN','PCGBR',
+  ];
+  var best={angle:0,score:-1};
+  for(var i=0;i<4;i++){
+    var a=i*90;
+    try{
+      var b=await toBlob(rotate(canvas,a),0.25);
+      var r=await Tesseract.recognize(b,'eng',{logger:function(){}});
+      var t=r.data.text.toUpperCase();
+      var sc=KW.reduce(function(n,k){return n+(t.indexOf(k)>=0?1:0);},0);
+      // Bonus: if we see typical MRZ characters (P< followed by letters) at score>0
+      if(/P[A-Z<]{1,3}[A-Z]{3}/.test(t)) sc+=2;
+      if(sc>best.score) best={angle:a,score:sc};
+    }catch(e){}
+  }
+  return best.angle;
+}
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  3. HELPER DATE  (eng · allNamedDates · allNumericDates · getExpiry)      ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+// ── Date helpers ──────────────────────────────────────────────────────────────
+var MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+var MS={JAN:0,FEB:1,MAR:2,APR:3,MAY:4,JUN:5,JUL:6,AUG:7,SEP:8,OCT:9,NOV:10,DEC:11,
+        JANUARY:0,FEBRUARY:1,MARCH:2,APRIL:3,JUNE:5,JULY:6,AUGUST:7,SEPTEMBER:8,OCTOBER:9,NOVEMBER:10,DECEMBER:11};
+
+function eng(dd,mm,yyyy){
+  return parseInt(dd)+' '+MN[parseInt(mm)-1]+' '+yyyy;
+}
+
+// Named-month dates (handles "SEP /SEPT 2023", "01 OCT 2029", etc.)
+function allNamedDates(text){
+  var rx=/(\d{1,2})\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s*(?:\/\s*\w+\s+)?(\d{2,4})/gi;
+  var m,found=[];
+  while((m=rx.exec(text))!==null){
+    var mi=MS[m[2].toUpperCase().slice(0,3)];
+    if(mi===undefined) continue;
+    var dd=parseInt(m[1]); if(dd<1||dd>31) continue; // reject invalid days (OCR noise)
+    var yy=parseInt(m[3]);
+    var yr=yy<100?(yy<=39?2000+yy:1900+yy):yy; // ICAO rule: 00-39→2000s, 40-99→1900s
+    found.push({d:parseInt(m[1]),mi:mi,y:yr,str:eng(m[1],String(mi+1).padStart(2,'0'),yr)});
+  }
+  return found;
+}
+// Numeric dates DD/MM/YYYY or YYYY/MM/DD
+function allNumericDates(text){
+  var m,found=[];
+  var rx=/(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})/g;
+  while((m=rx.exec(text))!==null){
+    var dd=parseInt(m[1]),mo=parseInt(m[2]),yyyy=parseInt(m[3]);
+    if(mo>=1&&mo<=12&&dd>=1&&dd<=31) found.push({d:dd,mi:mo-1,y:yyyy,str:eng(m[1],String(mo).padStart(2,'0'),yyyy)});
+  }
+  return found;
+}
+// getExpiry: latest date after 2010
+function getExpiry(text){
+  // Explicit expiry label first
+  var lm=text.match(/(?:scade il|date of expiry|expiry date)[^0-9]*(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})/i);
+  if(lm){
+    var yy=parseInt(lm[3]);
+    if(yy<100) yy=yy<=39?2000+yy:1900+yy; // ICAO year rule
+    return eng(lm[1],String(parseInt(lm[2])).padStart(2,'0'),yy);
+  }
+  var all=allNamedDates(text).concat(allNumericDates(text)).filter(function(x){return x.y>2010;});
+  if(!all.length) return '';
+  all.sort(function(a,b){return (b.y*10000+b.mi*100+b.d)-(a.y*10000+a.mi*100+a.d);});
+  return all[0].str;
+}
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  4. PARSER MRZ  (parseMRZ)                                                ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+// ── ISO country code → formal name lookup ────────────────────────────────────
+var ISO3_TO_COUNTRY={
+  'AFG':'the Islamic Republic of Afghanistan',
+  'AGO':'the Republic of Angola',
+  'ALB':'the Republic of Albania',
+  'AND':'the Principality of Andorra',
+  'ARE':'the United Arab Emirates',
+  'ARG':'the Argentine Republic',
+  'ARM':'the Republic of Armenia',
+  'ATG':'Antigua and Barbuda',
+  'AUS':'the Commonwealth of Australia',
+  'AUT':'the Republic of Austria',
+  'AZE':'the Republic of Azerbaijan',
+  'BDI':'the Republic of Burundi',
+  'BEL':'the Kingdom of Belgium',
+  'BEN':'the Republic of Benin',
+  'BFA':'Burkina Faso',
+  'BGD':'the People\'s Republic of Bangladesh',
+  'BGR':'the Republic of Bulgaria',
+  'BHR':'the Kingdom of Bahrain',
+  'BHS':'the Commonwealth of The Bahamas',
+  'BIH':'Bosnia and Herzegovina',
+  'BLR':'the Republic of Belarus',
+  'BLZ':'Belize',
+  'BOL':'the Plurinational State of Bolivia',
+  'BRA':'the Federative Republic of Brazil',
+  'BRB':'Barbados',
+  'BRN':'Brunei Darussalam',
+  'BTN':'the Kingdom of Bhutan',
+  'BWA':'the Republic of Botswana',
+  'CAF':'the Central African Republic',
+  'CAN':'Canada',
+  'CHE':'the Swiss Confederation',
+  'CHL':'the Republic of Chile',
+  'CHN':'the People\'s Republic of China',
+  'CIV':'the Republic of Côte d\'Ivoire',
+  'CMR':'the Republic of Cameroon',
+  'COD':'the Democratic Republic of the Congo',
+  'COG':'the Republic of the Congo',
+  'COK':'the Cook Islands',
+  'COL':'the Republic of Colombia',
+  'COM':'the Union of the Comoros',
+  'CPV':'the Republic of Cabo Verde',
+  'CRI':'the Republic of Costa Rica',
+  'CUB':'the Republic of Cuba',
+  'CYP':'the Republic of Cyprus',
+  'CZE':'the Czech Republic',
+  'DEU':'the Federal Republic of Germany',
+  'DJI':'the Republic of Djibouti',
+  'DMA':'the Commonwealth of Dominica',
+  'DNK':'the Kingdom of Denmark',
+  'DOM':'the Dominican Republic',
+  'DZA':'the People\'s Democratic Republic of Algeria',
+  'ECU':'the Republic of Ecuador',
+  'EGY':'the Arab Republic of Egypt',
+  'ERI':'the State of Eritrea',
+  'ESP':'the Kingdom of Spain',
+  'EST':'the Republic of Estonia',
+  'ETH':'the Federal Democratic Republic of Ethiopia',
+  'FIN':'the Republic of Finland',
+  'FJI':'the Republic of Fiji',
+  'FRA':'the French Republic',
+  'FSM':'the Federated States of Micronesia',
+  'GAB':'the Gabonese Republic',
+  'GBR':'the United Kingdom of Great Britain and Northern Ireland',
+  'GEO':'Georgia',
+  'GHA':'the Republic of Ghana',
+  'GIN':'the Republic of Guinea',
+  'GMB':'the Republic of The Gambia',
+  'GNB':'the Republic of Guinea-Bissau',
+  'GNQ':'the Republic of Equatorial Guinea',
+  'GRC':'the Hellenic Republic',
+  'GRD':'Grenada',
+  'GTM':'the Republic of Guatemala',
+  'GUY':'the Co-operative Republic of Guyana',
+  'HND':'the Republic of Honduras',
+  'HRV':'the Republic of Croatia',
+  'HTI':'the Republic of Haiti',
+  'HUN':'Hungary',
+  'IDN':'the Republic of Indonesia',
+  'IND':'the Republic of India',
+  'IRL':'Ireland',
+  'IRN':'the Islamic Republic of Iran',
+  'IRQ':'the Republic of Iraq',
+  'ISL':'Iceland',
+  'ISR':'the State of Israel',
+  'ITA':'the Italian Republic',
+  'JAM':'Jamaica',
+  'JOR':'the Hashemite Kingdom of Jordan',
+  'JPN':'Japan',
+  'KAZ':'the Republic of Kazakhstan',
+  'KEN':'the Republic of Kenya',
+  'KGZ':'the Kyrgyz Republic',
+  'KHM':'the Kingdom of Cambodia',
+  'KIR':'the Republic of Kiribati',
+  'KNA':'Saint Kitts and Nevis',
+  'KOR':'the Republic of Korea',
+  'KWT':'the State of Kuwait',
+  'LAO':'the Lao People\'s Democratic Republic',
+  'LBN':'the Lebanese Republic',
+  'LBR':'the Republic of Liberia',
+  'LBY':'State of Libya',
+  'LCA':'Saint Lucia',
+  'LIE':'the Principality of Liechtenstein',
+  'LKA':'the Democratic Socialist Republic of Sri Lanka',
+  'LSO':'the Kingdom of Lesotho',
+  'LTU':'the Republic of Lithuania',
+  'LUX':'the Grand Duchy of Luxembourg',
+  'LVA':'the Republic of Latvia',
+  'MAR':'the Kingdom of Morocco',
+  'MCO':'the Principality of Monaco',
+  'MDA':'the Republic of Moldova',
+  'MDG':'the Republic of Madagascar',
+  'MDV':'the Republic of Maldives',
+  'MEX':'the United Mexican States',
+  'MHL':'the Republic of the Marshall Islands',
+  'MKD':'Republic of North Macedonia',
+  'MLI':'the Republic of Mali',
+  'MLT':'the Republic of Malta',
+  'MMR':'Republic of the Union of Myanmar',
+  'MNE':'Montenegro',
+  'MNG':'Mongolia',
+  'MOZ':'the Republic of Mozambique',
+  'MRT':'the Islamic Republic of Mauritania',
+  'MUS':'the Republic of Mauritius',
+  'MWI':'the Republic of Malawi',
+  'MYS':'Malaysia',
+  'NAM':'the Republic of Namibia',
+  'NER':'the Republic of the Niger',
+  'NGA':'the Federal Republic of Nigeria',
+  'NIC':'the Republic of Nicaragua',
+  'NIU':'Niue',
+  'NLD':'Kingdom of the Netherlands',
+  'NOR':'the Kingdom of Norway',
+  'NPL':'the Federal Democratic Republic of Nepal',
+  'NRU':'the Republic of Nauru',
+  'NZL':'New Zealand',
+  'OMN':'the Sultanate of Oman',
+  'PAK':'the Islamic Republic of Pakistan',
+  'PAN':'the Republic of Panama',
+  'PER':'the Republic of Peru',
+  'PHL':'the Republic of the Philippines',
+  'PLW':'the Republic of Palau',
+  'PNG':'Independent State of Papua New Guinea',
+  'POL':'the Republic of Poland',
+  'PRK':'the Democratic People\'s Republic of Korea',
+  'PRT':'the Portuguese Republic',
+  'PRY':'the Republic of Paraguay',
+  'PSE':'Palestine',
+  'QAT':'the State of Qatar',
+  'ROU':'Romania',
+  'RUS':'the Russian Federation',
+  'RWA':'the Republic of Rwanda',
+  'SAU':'the Kingdom of Saudi Arabia',
+  'SDN':'the Republic of the Sudan',
+  'SEN':'the Republic of Senegal',
+  'SGP':'the Republic of Singapore',
+  'SLB':'Solomon Islands',
+  'SLE':'the Republic of Sierra Leone',
+  'SLV':'the Republic of El Salvador',
+  'SMR':'the Republic of San Marino',
+  'SOM':'the Federal Republic of Somalia',
+  'SRB':'the Republic of Serbia',
+  'SSD':'the Republic of South Sudan',
+  'STP':'the Democratic Republic of Sao Tome and Principe',
+  'SUR':'the Republic of Suriname',
+  'SVK':'the Slovak Republic',
+  'SVN':'the Republic of Slovenia',
+  'SWE':'the Kingdom of Sweden',
+  'SWZ':'the Kingdom of Eswatini',
+  'SYC':'the Republic of Seychelles',
+  'SYR':'the Syrian Arab Republic',
+  'TCD':'the Republic of Chad',
+  'TGO':'the Togolese Republic',
+  'THA':'the Kingdom of Thailand',
+  'TJK':'the Republic of Tajikistan',
+  'TKM':'Turkmenistan',
+  'TLS':'the Democratic Republic of Timor-Leste',
+  'TON':'the Kingdom of Tonga',
+  'TTO':'the Republic of Trinidad and Tobago',
+  'TUN':'the Republic of Tunisia',
+  'TUR':'the Republic of Türkiye',
+  'TUV':'Tuvalu',
+  'TZA':'the United Republic of Tanzania',
+  'UGA':'the Republic of Uganda',
+  'UKR':'Ukraine',
+  'URY':'the Eastern Republic of Uruguay',
+  'USA':'the United States of America',
+  'UZB':'the Republic of Uzbekistan',
+  'VAT':'the Holy See',
+  'VCT':'Saint Vincent and the Grenadines',
+  'VEN':'the Bolivarian Republic of Venezuela',
+  'VNM':'the Socialist Republic of Viet Nam',
+  'VUT':'the Republic of Vanuatu',
+  'WSM':'the Independent State of Samoa',
+  'YEM':'the Republic of Yemen',
+  'ZAF':'the Republic of South Africa',
+  'ZMB':'the Republic of Zambia',
+  'ZWE':'the Republic of Zimbabwe'
+};
+
+var ISO2_TO_COUNTRY={
+  'AD':'the Principality of Andorra',
+  'AE':'the United Arab Emirates',
+  'AF':'the Islamic Republic of Afghanistan',
+  'AG':'Antigua and Barbuda',
+  'AL':'the Republic of Albania',
+  'AM':'the Republic of Armenia',
+  'AO':'the Republic of Angola',
+  'AR':'the Argentine Republic',
+  'AT':'the Republic of Austria',
+  'AU':'the Commonwealth of Australia',
+  'AZ':'the Republic of Azerbaijan',
+  'BA':'Bosnia and Herzegovina',
+  'BB':'Barbados',
+  'BD':'the People\'s Republic of Bangladesh',
+  'BE':'the Kingdom of Belgium',
+  'BF':'Burkina Faso',
+  'BG':'the Republic of Bulgaria',
+  'BH':'the Kingdom of Bahrain',
+  'BI':'the Republic of Burundi',
+  'BJ':'the Republic of Benin',
+  'BN':'Brunei Darussalam',
+  'BO':'the Plurinational State of Bolivia',
+  'BR':'the Federative Republic of Brazil',
+  'BS':'the Commonwealth of The Bahamas',
+  'BT':'the Kingdom of Bhutan',
+  'BW':'the Republic of Botswana',
+  'BY':'the Republic of Belarus',
+  'BZ':'Belize',
+  'CA':'Canada',
+  'CD':'the Democratic Republic of the Congo',
+  'CF':'the Central African Republic',
+  'CG':'the Republic of the Congo',
+  'CH':'the Swiss Confederation',
+  'CI':'the Republic of Côte d\'Ivoire',
+  'CK':'the Cook Islands',
+  'CL':'the Republic of Chile',
+  'CM':'the Republic of Cameroon',
+  'CN':'the People\'s Republic of China',
+  'CO':'the Republic of Colombia',
+  'CR':'the Republic of Costa Rica',
+  'CU':'the Republic of Cuba',
+  'CV':'the Republic of Cabo Verde',
+  'CY':'the Republic of Cyprus',
+  'CZ':'the Czech Republic',
+  'DE':'the Federal Republic of Germany',
+  'DJ':'the Republic of Djibouti',
+  'DK':'the Kingdom of Denmark',
+  'DM':'the Commonwealth of Dominica',
+  'DO':'the Dominican Republic',
+  'DZ':'the People\'s Democratic Republic of Algeria',
+  'EC':'the Republic of Ecuador',
+  'EE':'the Republic of Estonia',
+  'EG':'the Arab Republic of Egypt',
+  'ER':'the State of Eritrea',
+  'ES':'the Kingdom of Spain',
+  'ET':'the Federal Democratic Republic of Ethiopia',
+  'FI':'the Republic of Finland',
+  'FJ':'the Republic of Fiji',
+  'FM':'the Federated States of Micronesia',
+  'FR':'the French Republic',
+  'GA':'the Gabonese Republic',
+  'GB':'the United Kingdom of Great Britain and Northern Ireland',
+  'GD':'Grenada',
+  'GE':'Georgia',
+  'GH':'the Republic of Ghana',
+  'GM':'the Republic of The Gambia',
+  'GN':'the Republic of Guinea',
+  'GQ':'the Republic of Equatorial Guinea',
+  'GR':'the Hellenic Republic',
+  'GT':'the Republic of Guatemala',
+  'GW':'the Republic of Guinea-Bissau',
+  'GY':'the Co-operative Republic of Guyana',
+  'HN':'the Republic of Honduras',
+  'HR':'the Republic of Croatia',
+  'HT':'the Republic of Haiti',
+  'HU':'Hungary',
+  'ID':'the Republic of Indonesia',
+  'IE':'Ireland',
+  'IL':'the State of Israel',
+  'IN':'the Republic of India',
+  'IQ':'the Republic of Iraq',
+  'IR':'the Islamic Republic of Iran',
+  'IS':'Iceland',
+  'IT':'the Italian Republic',
+  'JM':'Jamaica',
+  'JO':'the Hashemite Kingdom of Jordan',
+  'JP':'Japan',
+  'KE':'the Republic of Kenya',
+  'KG':'the Kyrgyz Republic',
+  'KH':'the Kingdom of Cambodia',
+  'KI':'the Republic of Kiribati',
+  'KM':'the Union of the Comoros',
+  'KN':'Saint Kitts and Nevis',
+  'KP':'the Democratic People\'s Republic of Korea',
+  'KR':'the Republic of Korea',
+  'KW':'the State of Kuwait',
+  'KZ':'the Republic of Kazakhstan',
+  'LA':'the Lao People\'s Democratic Republic',
+  'LB':'the Lebanese Republic',
+  'LC':'Saint Lucia',
+  'LI':'the Principality of Liechtenstein',
+  'LK':'the Democratic Socialist Republic of Sri Lanka',
+  'LR':'the Republic of Liberia',
+  'LS':'the Kingdom of Lesotho',
+  'LT':'the Republic of Lithuania',
+  'LU':'the Grand Duchy of Luxembourg',
+  'LV':'the Republic of Latvia',
+  'LY':'State of Libya',
+  'MA':'the Kingdom of Morocco',
+  'MC':'the Principality of Monaco',
+  'MD':'the Republic of Moldova',
+  'ME':'Montenegro',
+  'MG':'the Republic of Madagascar',
+  'MH':'the Republic of the Marshall Islands',
+  'MK':'Republic of North Macedonia',
+  'ML':'the Republic of Mali',
+  'MM':'Republic of the Union of Myanmar',
+  'MN':'Mongolia',
+  'MR':'the Islamic Republic of Mauritania',
+  'MT':'the Republic of Malta',
+  'MU':'the Republic of Mauritius',
+  'MV':'the Republic of Maldives',
+  'MW':'the Republic of Malawi',
+  'MX':'the United Mexican States',
+  'MY':'Malaysia',
+  'MZ':'the Republic of Mozambique',
+  'NA':'the Republic of Namibia',
+  'NE':'the Republic of the Niger',
+  'NG':'the Federal Republic of Nigeria',
+  'NI':'the Republic of Nicaragua',
+  'NL':'Kingdom of the Netherlands',
+  'NO':'the Kingdom of Norway',
+  'NP':'Nepal',
+  'NR':'the Republic of Nauru',
+  'NU':'Niue',
+  'NZ':'New Zealand',
+  'OM':'the Sultanate of Oman',
+  'PA':'the Republic of Panama',
+  'PE':'the Republic of Peru',
+  'PG':'Independent State of Papua New Guinea',
+  'PH':'the Republic of the Philippines',
+  'PK':'the Islamic Republic of Pakistan',
+  'PL':'the Republic of Poland',
+  'PS':'Palestine',
+  'PT':'the Portuguese Republic',
+  'PW':'the Republic of Palau',
+  'PY':'the Republic of Paraguay',
+  'QA':'the State of Qatar',
+  'RO':'Romania',
+  'RS':'the Republic of Serbia',
+  'RU':'the Russian Federation',
+  'RW':'the Republic of Rwanda',
+  'SA':'the Kingdom of Saudi Arabia',
+  'SB':'Solomon Islands',
+  'SC':'the Republic of Seychelles',
+  'SD':'the Republic of the Sudan',
+  'SE':'the Kingdom of Sweden',
+  'SG':'the Republic of Singapore',
+  'SI':'the Republic of Slovenia',
+  'SK':'the Slovak Republic',
+  'SL':'the Republic of Sierra Leone',
+  'SM':'the Republic of San Marino',
+  'SN':'the Republic of Senegal',
+  'SO':'the Federal Republic of Somalia',
+  'SR':'the Republic of Suriname',
+  'SS':'the Republic of South Sudan',
+  'ST':'the Democratic Republic of Sao Tome and Principe',
+  'SV':'the Republic of El Salvador',
+  'SY':'the Syrian Arab Republic',
+  'SZ':'the Kingdom of Eswatini',
+  'TD':'the Republic of Chad',
+  'TG':'the Togolese Republic',
+  'TH':'the Kingdom of Thailand',
+  'TJ':'the Republic of Tajikistan',
+  'TL':'the Democratic Republic of Timor-Leste',
+  'TM':'Turkmenistan',
+  'TN':'the Republic of Tunisia',
+  'TO':'the Kingdom of Tonga',
+  'TR':'the Republic of Türkiye',
+  'TT':'the Republic of Trinidad and Tobago',
+  'TV':'Tuvalu',
+  'TZ':'the United Republic of Tanzania',
+  'UA':'Ukraine',
+  'UG':'the Republic of Uganda',
+  'US':'the United States of America',
+  'UY':'the Eastern Republic of Uruguay',
+  'UZ':'the Republic of Uzbekistan',
+  'VA':'the Holy See',
+  'VC':'Saint Vincent and the Grenadines',
+  'VE':'the Bolivarian Republic of Venezuela',
+  'VN':'the Socialist Republic of Viet Nam',
+  'VU':'the Republic of Vanuatu',
+  'WS':'the Independent State of Samoa',
+  'YE':'the Republic of Yemen',
+  'ZA':'the Republic of South Africa',
+  'ZM':'the Republic of Zambia',
+  'ZW':'the Republic of Zimbabwe'
+};
+
+function isoToCountry(code){
+  if(!code) return '';
+  var c=code.toUpperCase().trim();
+  return ISO3_TO_COUNTRY[c]||ISO2_TO_COUNTRY[c]||'';
+}
+
+// ── MRZ parser ────────────────────────────────────────────────────────────────
+function parseMRZ(text){
+  var lines=text.split('\n');
+  var cands=lines.map(function(l){
+    // Pre-clean: fix common non-ASCII OCR substitutions before stripping
+    l=l.replace(/£/g,'B').replace(/€/g,'E').replace(/\$/g,'S');
+    // 'e' (lowercase) in MRZ filler zones → '<'
+    l=l.replace(/e{2,}/g,function(m){return Array(m.length+1).join('<');});
+    var cl=l.replace(/[^A-Za-z0-9<>]/g,'').toUpperCase().replace(/>/g,'<');
+    cl=cl.replace(/K{2,}/g,function(m){return Array(m.length+1).join('<');});
+    cl=cl.replace(/<K</g,'<<<');
+    cl=cl.replace(/<K([A-Z])/g,'<<$1'); // <K+letter → << (e.g. <KSTEVEN → <<STEVEN, <KEMILIO → <<EMILIO)
+    // K embedded between two name components (both with vowels): GALLETTIKJESI → GALLETTI<JESI
+    cl=cl.replace(/([A-Z]{3,})K([A-Z]{3,})/g,function(m,a,b){
+      if(/[AEIOU]/.test(a)&&/[AEIOU]/.test(b)) return a+'<'+b;
+      return m;
+    });
+    cl=cl.replace(/<C+([A-Z])/g,'<<$1');
+    cl=cl.replace(/S{3,}/g,function(m){return Array(m.length+1).join('<');});
+    cl=cl.replace(/L{4,}/g,function(m){return Array(m.length+1).join('<');});
+    cl=cl.replace(/C{4,}/g,function(m){return Array(m.length+1).join('<');});
+    cl=cl.replace(/Z{4,}/g,function(m){return Array(m.length+1).join('<');});
+    cl=cl.replace(/E{4,}/g,function(m){return Array(m.length+1).join('<');});
+    cl=cl.replace(/Y{3,}/g,function(m){return Array(m.length+1).join('<');});
+    // Alternating LC/CL filler: OCR reads MRZ <<<<<< zone as LCLCLCLC...
+    cl=cl.replace(/[LC]{6,}/g,function(m){
+      var lc=(m.match(/L/g)||[]).length,cc=(m.match(/C/g)||[]).length;
+      return (Math.min(lc,cc)/Math.max(lc,cc||1)>0.3)?Array(m.length+1).join('<'):m;
+    });
+    return cl;
+  }).filter(function(l){
+    if(l.length<25) return false;
+    var ok=l.match(/[A-Z0-9<]/g);
+    return ok&&ok.length/l.length>0.75;
+  });
+  // Deduplicate: keep unique candidates (multiple OCR passes may give same line)
+  var seen={};
+  cands=cands.filter(function(c){
+    // Normalize for dedup: remove trailing < filler
+    var key=c.replace(/<+$/,'').substring(0,30);
+    if(seen[key]) return false;
+    seen[key]=true; return true;
+  });
+
+  var surname='',given='',docNum='',expiry='',gender='',countryCode='';
+
+
+  // Year helper: 2-digit yy → 4-digit year using ICAO rule (00-39 → 2000s, 40-99 → 1900s)
+  function mrzYear(yy){ return yy<=39 ? 2000+yy : 1900+yy; }
+
+  // ── Line 2: extract expiry and sex using M/F as anchor ───────────────────
+  // Pre-sort: prefer candidates with more < chars (from whitelist pass = cleaner)
+  cands.sort(function(a,b){
+    var af=(a.match(/</g)||[]).length, bf=(b.match(/</g)||[]).length;
+    if(bf!==af) return bf-af;
+    return b.length-a.length;
+  });
+  // This handles OCR noise robustly: find M or F sex char, extract expiry after it
+  for(var i=0;i<cands.length;i++){
+    var c=cands[i];
+    // Extract country code from 'c' BEFORE O→0 (O in country code must stay as letter)
+    // Try multiple patterns to handle OCR corruption of the country field
+    {
+      var ccM=c.match(/([A-Z]{3})\d{6}\d[MF]/)      // standard: country before DOB+sex
+             ||c.match(/[A-Z0-9]{9,10}([A-Z]{3})\d/); // in docnum context
+      if(ccM){
+        var ccNew=ccM[1].replace(/1/g,'I').replace(/0/g,'O');
+        var ccNewValid=!!(ISO3_TO_COUNTRY[ccNew]||ISO2_TO_COUNTRY[ccNew]);
+        var ccCurrValid=!!(ISO3_TO_COUNTRY[countryCode]||ISO2_TO_COUNTRY[countryCode]);
+        // Only update if: no country yet, or new one is valid and current isn't
+        if(!countryCode || (!ccCurrValid && ccNewValid)){
+          countryCode=ccNew;
+        }
+      }
+    }
+    // Normalize < → 0 and O → 0 for numeric matching
+    var cn=c.replace(/</g,'0').replace(/O/g,'0');
+    // Standard pattern first
+    var m=cn.match(/([A-Z0-9]{2,9})\d([A-Z0-9]{3}).?(\d{6})\d([MF])(\d{6})/);
+    if(m){
+      var dn=m[1];
+      // Strip trailing check/filler digits for 2-letter docnums
+      // 2L+8D -> strip to 2L+6D (two extra digits = check + filler)
+      if(/^[A-Z]{2}\d{8}$/.test(dn)) dn=dn.slice(0,-2);
+      // 2L+7D ending in 0 -> strip trailing filler 0
+      if(/^[A-Z]{2}\d{7}$/.test(dn)&&dn.slice(-1)==='0') dn=dn.slice(0,-1);
+      // For purely numeric docnums: strip trailing filler 0 (from < → 0 conversion)
+      if(/^\d+$/.test(dn)&&dn.slice(-1)==='0'&&dn.length>=8) dn=dn.slice(0,-1);
+      // Strip trailing filler 0s for single-letter docnums (applied repeatedly)
+      if(/^[A-Z]\d{8}$/.test(dn)&&dn.slice(-1)==='0') dn=dn.slice(0,-1); // 1L+8D→7D
+      if(/^[A-Z]\d{7}0$/.test(dn)) dn=dn.slice(0,-1); // 1L+7D+0→6D (B0928441<)
+      if(/^[A-Z]\d{6}0$/.test(dn)) dn=dn.slice(0,-1); // 1L+6D+0→5D (D013133<)
+      // Fix leading 7→1 OCR error on numeric doc numbers
+      if(/^\d/.test(dn)&&dn[0]==='7') dn='1'+dn.slice(1);
+      // Fix leading 1→B OCR error: B and 1 look similar in some scan fonts
+      // Apply when: purely numeric, starts with 1, length 7-8, valid country found
+      if(/^1\d{6,7}$/.test(dn)&&(ISO3_TO_COUNTRY[countryCode]||ISO2_TO_COUNTRY[countryCode])){
+        dn='B'+dn.slice(1);
+      }
+      // Fix S→5 OCR noise in alphanumeric docnums (e.g. M763VS514 → M763V5147)
+      // Also collapse duplicate adjacent digits caused by OCR doubling (55→5, 11→1)
+      {var dnPfx=(dn.match(/^([A-Z]+)/)||['',''])[1];
+       var dnBody=dn.slice(dnPfx.length).replace(/S/g,'5').replace(/I(?=\d)/g,'1');
+       // Only collapse consecutive digit duplicates that immediately follow a letter
+       // e.g. V55→V5 (from VS5 after S→5) but NOT 66→6 (legitimate digit pair)
+       var dnFull=(dnPfx+dnBody).replace(/([A-Z])(\d)\2/g,function(m,l,d){return l+d;}); // collapse doubled digit after letter
+       if(dnFull.length>=7&&dnFull.length<=10) dn=dnFull;}
+      // Z→2 recovery: OCR-B Z and digit 2 look very similar.
+      // If docNum is all-digits starting with 2 (6-7 more digits), restore leading Z.
+      // Requires a valid country code to avoid false positives on purely numeric passports.
+      {var ccTmp=m[2].replace(/1/g,'I').replace(/0/g,'O');
+       if(/^2\d{6,7}$/.test(dn)&&(ISO3_TO_COUNTRY[ccTmp]||ISO2_TO_COUNTRY[ccTmp])){
+         dn='Z'+dn.slice(1);
+       }}
+      var ccCandidate=m[2].replace(/1/g,'I').replace(/0/g,'O');
+      var ccValid=!!(ISO3_TO_COUNTRY[ccCandidate]||ISO2_TO_COUNTRY[ccCandidate]);
+      // Only accept this match if country is valid, OR if we have no better candidate left
+      // Store as best candidate and keep searching for a valid-country match
+      if(!docNum || ccValid) {
+        docNum=dn; gender=m[4]; countryCode=ccCandidate;
+        var e=m[5]; expiry=eng(e.slice(4,6),e.slice(2,4),String(mrzYear(parseInt(e.slice(0,2)))));
+        if(ccValid) break; // valid country: stop searching
+        // invalid country: store but keep looking for better
+      }
+    }
+    // Positional extraction: when standard regex fails (e.g. I→1 in country: '1TA'→'ITA')
+    // MRZ2 standard layout: doc(9)+check(1)+country(3)+dob(6)+check(1)+sex(1)+expiry(6)
+    // Find sex [MF] at position 20 → extract all fields positionally
+    // Also run when docNum has no letter prefix (all-digit = likely Z/letter misread as digit)
+    var needsPositional=!docNum||!/^[A-Z]/.test(docNum);
+    if(needsPositional&&c.length>=27){
+      var mfMatch=c.match(/[0-9<]([MF])[0-9]/); if(mfMatch) mfMatch=[mfMatch[0],mfMatch[1]];
+      if(mfMatch&&mfMatch.index===20){
+        var docP=c.slice(0,9).replace(/</g,'').replace(/O/g,'0');
+        if(/^[A-Z]{2}\d{7}$/.test(docP)&&docP.slice(-1)==='0') docP=docP.slice(0,-1);
+        // Single letter + 7 digits + trailing 0: strip trailing 0 (check digit artifact)
+        if(/^[A-Z]\d{7}0$/.test(docP)) docP=docP.slice(0,-1);
+        // Z→2 recovery: if docP starts with digit but country expects letter prefix
+        // 2-prefix + 7 digits → likely Z misread (Z and 2 look similar in some OCR fonts)
+        if(/^2\d{6,7}$/.test(docP)&&(ISO3_TO_COUNTRY[ccP]||ISO2_TO_COUNTRY[ccP])){
+          docP='Z'+docP.slice(1); // restore Z prefix
+        }
+        if(/^[A-Z0-9]{5,9}$/.test(docP)) docNum=docP;
+        var ccP=c.slice(10,13).replace(/1/g,'I').replace(/0/g,'O').replace(/</g,'');
+        ccP=ccP.replace(/1/g,'I').replace(/0/g,'O'); if(/^[A-Z]{3}$/.test(ccP)&&(ISO3_TO_COUNTRY[ccP]||ISO2_TO_COUNTRY[ccP])) countryCode=ccP;
+        gender=mfMatch[0];
+        var expP=c.slice(21,27);
+        if(/^\d{6}$/.test(expP)){
+          var yP=parseInt(expP.slice(0,2)); var yyyyP=yP<=39?2000+yP:1900+yP;
+          expiry=eng(expP.slice(4,6),expP.slice(2,4),String(yyyyP));
+        }
+      }
+    }
+    // Fallback: anchor on sex character M/F → expiry is next 6 digits
+    var mSex=cn.match(/[A-Z0-9]{9,}([MF])(\d{6})/);
+    if(mSex){
+      gender=mSex[1];
+      var e2=mSex[2]; expiry=eng(e2.slice(4,6),e2.slice(2,4),String(mrzYear(parseInt(e2.slice(0,2)))));
+      // Also try to extract country code from sex anchor context
+      var ccM=cn.match(/[A-Z0-9]{9,10}([A-Z]{3})\d{7}[MF]/); if(ccM) countryCode=ccM[1].replace(/1/g,'I').replace(/0/g,'O');
+      // Doc number: find alphanumeric sequence at start, strip trailing filler 0
+      var mDoc=cn.match(/^([A-Z]{1,2}\d{5,8})/);
+      if(mDoc){
+        var dnF=mDoc[1];
+        if(/^[A-Z]{2}\d{7}$/.test(dnF)&&dnF.slice(-1)==='0') dnF=dnF.slice(0,-1);
+        // 1-letter + 7digits + trailing 0 → the 0 is from '<' filler, strip it
+        if(/^[A-Z]\d{7}0$/.test(dnF)) dnF=dnF.slice(0,-1);
+        // 1-letter + 8digits ending in 0 → same
+        if(/^[A-Z]\d{8}$/.test(dnF)&&dnF.slice(-1)==='0') dnF=dnF.slice(0,-1);
+        docNum=dnF;
+      } else {
+        // LP-style: docNum = first 9 chars of MRZ line (e.g. AUNBS1340+checkdigit)
+        // Use original candidate 'c' (not cn) to preserve letter/digit distinction
+        var raw9=c.slice(0,9);
+        var lpPfx=raw9.match(/^([A-Z]{2,4})/);
+        if(lpPfx){
+          var lpLetters=lpPfx[1];
+          // Fix OCR noise in numeric portion: S→5, O→0, I/l→1
+          var lpDigits=raw9.slice(lpLetters.length)
+                           .replace(/S/g,'5').replace(/O/g,'0')
+                           .replace(/I/g,'1').replace(/l/g,'1');
+          var lpDoc=lpLetters+lpDigits;
+          if(/^[A-Z]{2,4}\d{4,7}$/.test(lpDoc)) docNum=lpDoc;
+        }
+        if(!docNum){
+          var mDocN=cn.match(/^(\d{7,9})/);
+          if(mDocN){
+            docNum=mDocN[1];
+            // Strip trailing filler 0 FIRST (from < → 0 conversion), then do letter recovery
+            if(/^\d{8,9}$/.test(docNum)&&docNum.slice(-1)==='0') docNum=docNum.slice(0,-1);
+            if(docNum[0]==='7') docNum='1'+docNum.slice(1);
+            // B→1 OCR confusion: purely numeric 8 digits starting with 1, valid country
+            if(/^1\d{7}$/.test(docNum)&&(ISO3_TO_COUNTRY[countryCode]||ISO2_TO_COUNTRY[countryCode])){
+              docNum='B'+docNum.slice(1);
+            }
+          }
+        }
+      }
+      // Only break if we have a valid country code, otherwise keep looking
+      if(countryCode&&(ISO3_TO_COUNTRY[countryCode]||ISO2_TO_COUNTRY[countryCode])) break;
+    }
+  }
+
+  // ── Line 1: surname and given names ──────────────────────────────────────
+  var ALLCONS='BCDFGHJKLMNPQRSTVWYZ';
+  var KCONS_SN='BDGPRTW';
+  var KCONS_GN='BDGPRTW';
+  var TRAIL_K='NTLSMH';  // H added: AKASHK→AKASH
+  function isKGiven(w){ return (w[0]==='K'&&w.length>=5&&ALLCONS.indexOf(w[1])>=0)||(w[0]==='X'&&w.length>=5&&ALLCONS.indexOf(w[1])>=0); }
+  function isFiller(w){
+    if(w.length<2) return false;
+    // 2-char noise tokens with no vowels (SK, CL, LC, KL, HS etc.)
+    if(w.length===2&&/^[KLXSHC]{2}$/.test(w)) return true;
+    // Pure KL: always filler
+    if(w.split('').every(function(c){return c==='K'||c==='L';})) return true;
+    // Starts with 2+ same consonants → OCR noise (CC, KK etc.)
+    if(w.length>=3&&w[0]===w[1]&&'AEIOU'.indexOf(w[0])<0) return true;
+    // If word has a vowel in its first 6 chars, it's a real name (noise may follow)
+    var prefix=w.slice(0,6);
+    if(/[AEIOU]/.test(prefix)) return false;
+    // Otherwise: check noise ratio
+    var nc=w.split('').filter(function(c){return 'KLXSHC'.indexOf(c)>=0;}).length; // C added: LC alternating = MRZ filler
+    return w.length>=3&&nc/w.length>0.65;
+  }
+  function cleanSnNormal(w){
+    var KCONS2='BDGPRTW';
+    if(w[0]==='K'&&w.length>=3&&KCONS2.indexOf(w[1])>=0) w=w.slice(1);
+    // Strip spurious X prefix: OCR reads MRZ filler '<' as 'X' before words starting with vowel
+    // e.g. XOROZCO → OROZCO, XANDRES → ANDRES. Only strip if remainder starts with vowel and len>=5.
+    if(w[0]==='X'&&w.length>=5&&'AEIOU'.indexOf(w[1])>=0) w=w.slice(1);
+    // Strip spurious N prefix: OCR reads MRZ filler '<' as 'N' before consonant-starting surnames
+    // e.g. NRAMSEY→RAMSEY, NSMITH→SMITH. Only strip when N+consonant and remainder has vowel and len>=6.
+    // Do NOT strip when N+vowel (NAOMI, NADIA) or when result is too short.
+    if(w[0]==='N'&&w.length>=6&&'BCDFGHJKLMPQRSTVWXYZ'.indexOf(w[1])>=0&&/[AEIOU]/.test(w.slice(2))) w=w.slice(1);
+    var mSnE=w.match(/[KLC]{2,}$/);
+    if(mSnE&&mSnE.index>=2) w=w.slice(0,mSnE.index);
+    // Strip trailing K after vowel: JESIK→JESI, ONANAKI→ONANA (OCR filler noise)
+    if(w.length>=4&&w.slice(-1)==='K'&&'AEIOU'.indexOf(w.slice(-2,-1))>=0) w=w.slice(0,-1);
+    return w;
+  }
+  function cleanSnLast(w){  // for K-split path: last sn token has spurious trailing K
+    if(w[0]==='K'&&w.length>=3&&KCONS_SN.indexOf(w[1])>=0) w=w.slice(1);
+    // Strip trailing K+consonant noise suffix (e.g. RAOULKF→RAOUL)
+    w=w.replace(/K[BCDFGHJKLMNPQRSTVWXZ]$/, '');
+    if(w.length>=5&&w[w.length-1]==='K'&&TRAIL_K.indexOf(w[w.length-2])>=0) w=w.slice(0,-1);
+    // Also strip trailing K for 4-char words with N/T/M/S/H before K (e.g. MONK→MON, TANK→TAN)
+    else if(w.length===4&&w[w.length-1]==='K'&&'NTMSH'.indexOf(w[w.length-2])>=0) w=w.slice(0,-1);
+    return w;
+  }
+  function cleanGn(w){
+    if(!w) return w;
+    if(w[0]==='S'&&w.length>3) w=w.slice(1);
+    // Trailing L strip: OCR noise L at end when preceded by H (KAKASHL→KAKASH, AKASHL→AKASH)
+    if(w.length>=4&&w[w.length-1]==='L'&&w[w.length-2]==='H') w=w.slice(0,-1);
+    if(w[0]==='X'&&w.length>=5&&ALLCONS.indexOf(w[1])>=0) w=w.slice(1);
+    else if(w[0]==='K'&&w.length>=6&&ALLCONS.indexOf(w[1])>=0) w=w.slice(1);
+    // Z+vowel strip: Z before vowel in MRZ is often OCR reading '<' as 'Z' (e.g. <EMILIO → ZEMILIO)
+    // Only strip when remainder has 3+ vowels (clearly a real name token, Z is noise)
+    if(w[0]==='Z'&&w.length>=5&&'AEIOU'.indexOf(w[1])>=0){
+      var remZ=w.slice(1);
+      var vowZ=(remZ.match(/[AEIOU]/g)||[]).length;
+      if(vowZ>=4) w=remZ; // 4+ vowels = very likely a real name with Z-noise prefix
+    }
+    // NOTE: K+vowel stripping removed — too aggressive for African names (KARAMAGI→ARAMAGI)
+    // Short K-prefix tokens (2-4 chars) are handled below
+    else if(w[0]==='K'&&w.length>=5&&KCONS_GN.indexOf(w[1])>=0) w=w.slice(1);
+    // Aggressive K-strip for short tokens (len 2-4): KYUN→YUN, KJI→JI
+    // OCR reads '<' as K before each given name in Korean/Asian passports
+    else if(w[0]==='K'&&w.length>=2&&w.length<=4){
+      var rem=w.slice(1);
+      if(/[AEIOU]/.test(rem)&&rem.length>=2) w=rem;
+      else if(/[AEIOU]/.test(rem)&&rem.length===1&&graw.length>0) w=rem;
+    }
+    if(w.length>=5&&w[w.length-1]==='K'&&TRAIL_K.indexOf(w[w.length-2])>=0) w=w.slice(0,-1);
+    // Also strip trailing K for 4-char words with N/T/M/S/H before K (e.g. MONK→MON, TANK→TAN)
+    else if(w.length===4&&w[w.length-1]==='K'&&'NTMSH'.indexOf(w[w.length-2])>=0) w=w.slice(0,-1);
+    // Strip trailing D after vowel: AKIKOD→AKIKO, ERIND→ERIN (MRZ filler '<' → OCR 'D')
+    if(w.length>=5&&w[w.length-1]==='D'&&'AEIOU'.indexOf(w[w.length-2])>=0) w=w.slice(0,-1);
+    // Truncate trailing OCR noise suffix (e.g. JALOOKLKLKLK → JALOO)
+    var mNs=w.match(/[KLC]{2,}[LKC]{2,}/);
+    if(mNs&&mNs.index>=3) w=w.slice(0,mNs.index);
+    // Also strip trailing 2+ KLC noise chars at word end (e.g. RANCC→RAN)
+    var mEnd=w.match(/[KLC]{2,}$/);
+    if(mEnd&&mEnd.index>=2) w=w.slice(0,mEnd.index);
+    // T→I fix
+    if(w.length===2&&w[w.length-1]==='T'&&graw.length>0) w=w.slice(0,-1)+'I';
+    // Restore trailing 0→O in name tokens (MRZ O→0 substitution artifact)
+    // e.g. ZHU0 → ZHUO (Chinese name), but only when 2+ alpha chars precede the 0
+    if(w[w.length-1]==='0'&&w.length>=3){
+      var alphaB=w.slice(0,-1).replace(/[^A-Za-z]/g,'').length;
+      if(alphaB>=2) w=w.slice(0,-1)+'O';
+    }
+    return w.replace(/AZZ$/,'AZIZ');
+  }
+  // Score a MRZ1 candidate: prefer candidates with clear separators and clean name tokens
+  function scoreMrz1Cand(c2){
+    var score=0;
+    var m2=null;
+    for(var ni=1;ni<=3;ni++){
+      var mm=c2.match(new RegExp('^P.{'+ni+'}([A-Z]{3})(.{10,})'));
+      if(mm&&(ISO3_TO_COUNTRY[mm[1]]||ISO2_TO_COUNTRY[mm[1]])){m2=mm;break;}
+      if(mm&&!m2) m2=mm;
+    }
+    if(!m2) return -1;
+    var nf2=m2[2].replace(/<{3,}.*$/,'');
+    if(nf2.indexOf('<<')>=0) score+=3;
+    var m_sep=nf2.match(/<([A-Z])</); if(m_sep) score+=2;
+    // Count clean given name tokens (after separator)
+    var pos_dbl=nf2.indexOf('<<');
+    var pos_sep2=m_sep?nf2.indexOf(m_sep[0]):-1;
+    var gnR='';
+    if(pos_sep2>=0&&(pos_dbl<0||pos_sep2<pos_dbl)) gnR=nf2.slice(pos_sep2+3);
+    else if(pos_dbl>=0) gnR=nf2.slice(pos_dbl+2);
+    gnR.split('<').forEach(function(w){
+      if(w.length<2) return;
+      var wc=w[0]==='K'&&w.length>=2?w.slice(1):w;
+      if(/[AEIOU]/.test(wc.slice(0,5))&&wc.length>=3) score+=2;
+    });
+    return score;
+  }
+  // Sort P-starting candidates by score (best first)
+  var pCands=cands.filter(function(c){return c[0]==='P';});
+  // Also add non-P lines that look like MRZ1 with a lost leading P
+  // e.g. "CUGAJASI<<<" where C is OCR noise → prepend synthetic P
+  // These are added AFTER real P-candidates so they're tried as fallback
+  var syntheticCands=cands.filter(function(c){
+    return c[0]!=='P' && /^[A-Z0-9]{1,3}[A-Z]{3}[A-Z<]{5,}/.test(c) && c.indexOf('<')>=0;
+  }).map(function(c){ return 'P'+c; });
+  pCands=pCands.concat(syntheticCands);
+  pCands.sort(function(a,b){return scoreMrz1Cand(b)-scoreMrz1Cand(a);});
+  for(var j=0;j<pCands.length;j++){
+    var c2=pCands[j];
+    // Try n=1,2,3 chars after P; pick first with valid ISO3 country code
+    var m2=null;
+    for(var ni=1;ni<=3;ni++){
+      var pat=new RegExp('^P.{'+ni+'}([A-Z]{3})(.{10,})');
+      var mm=c2.match(pat);
+      if(mm){
+        if(ISO3_TO_COUNTRY[mm[1]]||ISO2_TO_COUNTRY[mm[1]]){m2=mm;break;}
+        if(!m2) m2=mm;
+      }
+    }
+    if(!m2) continue;
+    var nf=m2[2].replace(/([A-Z])KOR</g,'$1<OR<');
+    var nf2=nf.replace(/<{3,}.*$/,'').split('<OR<')[0];
+    var snWords=[], graw=[], snRaw='', gnRaw='';
+    var useKSplit=false;
+
+    // Find the FIRST meaningful separator: '<<' or '<[A-Z]<', whichever comes first
+    // e.g. Kenyan: ODHIAMBO<K<LINDA has '<K<' at pos 8, '<<' at pos 45 (filler) → use <K<
+    var pos_dbl=nf2.indexOf('<<');
+    var m_fsep=nf2.match(/<([A-Z])</);
+    var pos_sep=m_fsep?nf2.indexOf(m_fsep[0]):-1;
+    if(pos_sep>=0&&(pos_dbl<0||pos_sep<pos_dbl)){
+      // <[A-Z]< comes first — it's the surname/given separator
+      snRaw=nf2.slice(0,pos_sep); gnRaw=nf2.slice(pos_sep+3);
+    } else if(pos_dbl>=0){
+      var p2=nf2.split('<<'); snRaw=p2[0]; gnRaw=p2[1]||'';
+      // Verify: if snRaw still has K-given tokens, '<<' was in filler zone
+      var snCheck=snRaw.split('<').filter(function(w){return w.length>=2;});
+      if(snCheck.some(function(w){return isKGiven(w);})){
+        useKSplit=true;
+      }
+    } else {
+      useKSplit=true;
+    }
+
+    if(useKSplit){
+      // K-split: split at first K-prefixed given name token
+      var allToks=nf2.split('<').filter(function(w){return w.length>=2;});
+      var splitAt=-1;
+      for(var si=1;si<allToks.length;si++){ if(isKGiven(allToks[si])){splitAt=si;break;} }
+      if(splitAt<1){
+        // Last resort: try SK→<< (browser OCR reads '<<' as 'SK' in some passports)
+        // Only apply when SK appears between two 2+ char alpha sequences (not at start)
+        // e.g. XUESKZHUOC → XUE<<ZHUOC; avoids breaking at start (SKOGEN stays SKOGEN)
+        var nf2Sk=nf2.replace(/([A-Z]{2})SK([A-Z])/g,'$1<<$2');
+        if(nf2Sk.indexOf('<<')>=0&&nf2Sk!==nf2){
+          var pSk=nf2Sk.split('<<'); snRaw=pSk[0]; gnRaw=pSk[1]||'';
+          // Strip trailing C/S noise from given name tokens in SK path
+          // (these come from filler zone leaking into the name: ZHUOC→ZHUO, XUES→XUE)
+          graw=[];
+          gnRaw.split('<').forEach(function(w){
+            if(w.length<2||isFiller(w)) return;
+            var cw=cleanGn(w);
+            // Strip trailing C after vowel (OCR filler noise) for short words
+            if(cw.length>=3&&cw.length<=5&&cw[cw.length-1]==='C'&&'AEIOU'.indexOf(cw[cw.length-2])>=0)
+              cw=cw.slice(0,-1);
+            if(cw&&cw.length>=2&&!isFiller(cw)) {var mCx=cw.length>=5&&cw.length<=9?cw.match(/^([A-Z]{2,4})C([A-Z]{2,4})$/):null;
+          if(mCx&&/[AEIOU]/.test(mCx[1])&&/[AEIOU]/.test(mCx[2])){graw.push(mCx[1]);graw.push(mCx[2]);}
+          else{graw.push(cw);}}
+          });
+          snWords=snRaw.split('<').filter(function(w){return w.length>=2&&!isFiller(w);}).map(cleanSnNormal).map(function(w){
+        // Strip trailing K after vowel: JESIK->JESI, but not JONCK (C before K)
+        if(w.length>=4&&w.slice(-1)==='K'&&'AEIOU'.indexOf(w.slice(-2,-1))>=0) w=w.slice(0,-1);
+        return w;
+      }).filter(function(w){return w.length>=2&&!isFiller(w);});
+          // Strip trailing S from surname in SK path (e.g. XUES→XUE)
+          if(snWords.length>0){
+            var lastSn=snWords[snWords.length-1];
+            if(lastSn.length>=3&&lastSn.length<=5&&lastSn[lastSn.length-1]==='S'&&
+               'AEIOU'.indexOf(lastSn[lastSn.length-2])>=0)
+              snWords[snWords.length-1]=lastSn.slice(0,-1);
+          }
+        } else {
+          // Simple split fallback: if name zone has 2+ all-alpha all-vowel tokens,
+          // treat first as surname and rest as given names (e.g. AYE<AYE<MONK → AYE / AYE MON)
+          var simpToks=nf2.split('<').filter(function(w){return w.length>=2&&/^[A-Z]+$/.test(w)&&/[AEIOU]/.test(w)&&!isFiller(w);});
+          if(simpToks.length>=2){
+            snWords=[simpToks[0]];
+            graw=[];
+            simpToks.slice(1).forEach(function(w){
+              var cw=cleanGn(w);
+              if(cw&&cw.length>=2&&!isFiller(cw)) {var mCx=cw.length>=5&&cw.length<=9?cw.match(/^([A-Z]{2,4})C([A-Z]{2,4})$/):null;
+          if(mCx&&/[AEIOU]/.test(mCx[1])&&/[AEIOU]/.test(mCx[2])){graw.push(mCx[1]);graw.push(mCx[2]);}
+          else{graw.push(cw);}}
+            });
+          } else { continue; }
+        }
+      } else {
+        var snToks=allToks.slice(0,splitAt);
+        var gnToks=allToks.slice(splitAt);
+        // In K-split path, last sn token has a spurious trailing K from corrupted <<
+        snWords=snToks.slice(0,-1).map(cleanSnNormal).concat([cleanSnLast(snToks[snToks.length-1])]).filter(function(w){return w.length>=2&&!isFiller(w);});
+        graw=[];
+        gnToks.forEach(function(w){
+          if(!isFiller(w)){var cw=cleanGn(w); if(cw&&cw.length>=2&&!isFiller(cw)) {var mCx=cw.length>=5&&cw.length<=9?cw.match(/^([A-Z]{2,4})C([A-Z]{2,4})$/):null;
+          if(mCx&&/[AEIOU]/.test(mCx[1])&&/[AEIOU]/.test(mCx[2])){graw.push(mCx[1]);graw.push(mCx[2]);}
+          else{graw.push(cw);}}}
+        });
+      }
+    } else {
+      var hasSep=(snRaw||gnRaw);
+      if(!hasSep) continue;
+      snWords=snRaw.split('<').filter(function(w){return w.length>=2&&!isFiller(w);}).map(cleanSnNormal).filter(function(w){return w.length>=2&&!isFiller(w);});
+      var singles=snRaw.split('<').filter(function(w){return w.length===1;});
+      graw=[];
+      gnRaw.split('<').forEach(function(w){
+        // Allow single uppercase letter as initial (e.g. 'F' from 'STEVEN<RAOUL<F')
+        if(w.length===1&&/^[A-Z]$/.test(w)){graw.push(w);return;}
+        if(w.length<2||isFiller(w)) return;
+        var cw=cleanGn(w);
+        if(!cw||cw.length<2||isFiller(cw)) return;
+        // Detect C as separator: e.g. AYECMON → [AYE, MON] (< read as C by OCR)
+        var mC=cw.length>=5&&cw.length<=9?cw.match(/^([A-Z]{2,4})C([A-Z]{2,4})$/):null;
+        if(mC&&/[AEIOU]/.test(mC[1])&&/[AEIOU]/.test(mC[2])){
+          graw.push(mC[1]); graw.push(mC[2]);
+        } else { {var mCx=cw.length>=5&&cw.length<=9?cw.match(/^([A-Z]{2,4})C([A-Z]{2,4})$/):null;
+          if(mCx&&/[AEIOU]/.test(mCx[1])&&/[AEIOU]/.test(mCx[2])){graw.push(mCx[1]);graw.push(mCx[2]);}
+          else{graw.push(cw);}} }
+      });
+      if(singles.length>1){
+        var gnSingles=gnRaw.split('<').filter(function(w){return w.length===1;});
+        if(graw.length>0&&gnSingles.length===0) given=graw.join(' ');
+        surname=''; break;
+      }
+    }
+
+    // If given is empty but surname has multiple words (OCR compressed <<→<),
+    // the last surname words are likely given names. Redistribute them.
+    if(graw.length===0&&snWords.length>=2){
+      var extraGiven=snWords.slice(1).map(function(w){return cleanGn(w);})
+        .filter(function(w){return w&&w.length>=2&&!isFiller(w);});
+      if(extraGiven.length>0){ graw=extraGiven; snWords=[snWords[0]]; }
+    }
+    // Merge split surname tokens: OCR sometimes reads JONCKHEERE as JONC+HEERE
+    // (K is read as separator). Rejoin pairs where combined with K matches a plausible name.
+    for(var mi=0;mi<snWords.length-1;mi++){
+      var w1=snWords[mi], w2=snWords[mi+1];
+      // If w1 ends in consonant and w2 starts with vowel or H, try merging with K
+      if(w1.length>=3&&w1.length<=6&&w2.length>=3&&w1.length+w2.length<=12){
+        var merged=w1+'CK'+w2; // JONC+CK+HEERE = JONCKHEERE
+        var merged2=w1+'K'+w2;  // JONC+K+HEERE = JONCKHEERE
+        // Accept merge if: both parts have vowels AND merged length makes sense
+        if(/[AEIOU]/.test(w1)&&/[AEIOU]/.test(w2)){
+          snWords.splice(mi,2,merged2); mi--; // replace two with one, re-check
+        }
+      }
+    }
+    surname=snWords.join(' ').trim();
+    given=graw.join(' ');
+    if(surname) break;
+  }
+
+  // ── Fallback: MRZ1 without P at start (OCR misreads passport type char) ──
+  // e.g. Spanish passport P<ESP read as NRESPRACIONERO<GONZALEZ<<JORGES...
+  // The corrupted prefix is always 5 chars (P+subtype+country3 = 5 total)
+  if(!surname){
+    for(var k=0;k<cands.length;k++){
+      var c3=cands[k];
+      if(c3[0]==='P') continue;       // already tried above
+      if(c3.indexOf('<<')<0) continue; // no surname/given separator
+      var dbl3=c3.indexOf('<<');
+      if(dbl3<5) continue;            // not enough prefix chars
+      // Skip exactly 5 chars (corrupted P+subtype+country3 prefix)
+      var snR3=c3.slice(5,dbl3);
+      var snParts3=snR3.split('<').filter(function(w){return w.length>=2;});
+      if(!snParts3.length||!snParts3.every(function(w){return /^[A-Z]+$/.test(w);})) continue;
+      var gnR3=c3.slice(dbl3+2);
+      var gnToks3=gnR3.split('<');
+      var graw3=[];
+      for(var gi=0;gi<gnToks3.length;gi++){
+        var gw=gnToks3[gi];
+        if(gw.length<2) continue;
+        if(isFiller(gw)) break;
+        // Strip trailing S if this is the last real token (S = OCR noise for '<')
+        var nextReal=gnToks3.slice(gi+1).find(function(t){return t.length>=2&&!isFiller(t);});
+        if(!nextReal&&gw.length>=4&&gw[gw.length-1]==='S') gw=gw.slice(0,-1);
+        graw3.push(cleanGn(gw));
+      }
+      var snW3=snParts3.map(cleanSnNormal);
+      if(snW3.length>0){
+        surname=snW3.join(' ').trim();
+        given=graw3.join(' ');
+        break;
+      }
+    }
+  }
+  return {surname:surname,given:given,docNum:docNum,expiry:expiry,gender:gender,countryCode:countryCode};
+}
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  5. ESTRATTORI DOCUMENTI  (tc · extractPassport · extractLP · extractMAECI)║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+// ── Extractors ────────────────────────────────────────────────────────────────
+function normalizeSpaces(s){ return (s||'').replace(/\s+/g,' ').trim(); }
+
+function tokenizeName(name){
+  return sanitizePersonName(name).toUpperCase().split(/\s+|-/).filter(Boolean);
+}
+
+function tokenOverlapScore(a,b){
+  var aa=tokenizeName(a), bb=tokenizeName(b);
+  if(!aa.length||!bb.length) return 0;
+  var setB={}; bb.forEach(function(t){setB[t]=1;});
+  var hits=aa.filter(function(t){return setB[t];}).length;
+  return hits/Math.max(aa.length,bb.length);
+}
+
+function looksLikeMrzPollution(name,mrzCountryCode){
+  var raw=String(name||'').toUpperCase();
+  if(!raw) return false;
+  if(/^(P|PM|LP)[A-Z]{2,}/.test(raw.replace(/[^A-Z]/g,''))) return true;
+  if(/\b(PASSPORT|REPUBLIC|MINISTRY|NATIONALITY|AUTHORITY|DOCUMENT|LAISSEZ|UNITED|NATIONS)\b/.test(raw)) return true;
+  if(mrzCountryCode&&raw.replace(/[^A-Z]/g,'').indexOf(String(mrzCountryCode).toUpperCase())===0) return true;
+  if(/^[A-Z]{10,}$/.test(raw.replace(/[^A-Z]/g,''))&&!/[AEIOU]/.test(raw.replace(/[^A-Z]/g,''))) return true;
+  return false;
+}
+
+function chooseBestNameFromCandidates(candidates,mrzCountryCode){
+  var best='';
+  var bestScore=-999;
+  for(var i=0;i<candidates.length;i++){
+    var item=candidates[i];
+    var name=sanitizePersonName(item.value);
+    if(!name) continue;
+    var score=nameQualityScore(name,mrzCountryCode);
+    if(item.source==='printed') score+=18;
+    if(item.source==='caps') score+=6;
+    for(var j=0;j<candidates.length;j++){
+      if(i===j) continue;
+      var other=sanitizePersonName(candidates[j].value);
+      if(!other) continue;
+      var overlap=tokenOverlapScore(name,other);
+      if(overlap>=0.99) score+=16;
+      else if(overlap>=0.6) score+=8;
+    }
+    if(score>bestScore){ bestScore=score; best=name; }
+  }
+  return best;
+}
+
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  MULTI-SOURCE NAME EXTRACTION  (GPT robust parsing + my MRZ fixes)       ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+function stripDiacriticsSafe(s){
+  try{ return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+  catch(e){ return s||''; }
+}
+
+function sanitizePersonName(name){
+  if(!name) return '';
+  var s=stripDiacriticsSafe(String(name))
+    .replace(/[|~*©®°<>0-9_]/g,' ')
+    .replace(/[^A-Za-z\s\-']/g,' ')
+    .replace(/\b([a-z])\b/g,' ') // remove single lowercase chars only; keep uppercase initials
+    .replace(/\s+/g,' ')
+    .trim();
+  if(!s) return '';
+  var parts=s.split(' ');
+  if(parts.length>=4&&parts.length%2===0){
+    var half=parts.length/2;
+    if(parts.slice(0,half).join(' ').toUpperCase()===parts.slice(half).join(' ').toUpperCase()) s=parts.slice(0,half).join(' ');
+  }
+  var cleanedParts=s.split(' ').filter(function(w){
+    if(!w) return false;
+    if(w.length<=1&&!/^(D'|O')/i.test(w)) return false; // single chars removed (initials handled via crossCorrect)
+    // Drop obvious OCR garbage tokens like Ccclllllllllllllllkl
+    if(w.length>=6&&/(.)\1{4,}/i.test(w)) return false;
+    if(w.length>=10){
+      var unique=(w.toUpperCase().match(/[A-Z]/g)||[]).filter(function(v,i,a){return a.indexOf(v)===i;}).length;
+      if(unique<=3) return false;
+    }
+    return true;
+  });
+  var cleaned=cleanedParts.join(' ');
+  cleaned=cleaned.replace(/\b(PM|P|LP|UNO|UNA|KOR|ESP|FRA|ITA|GBR|USA|TUR|NPL|CHN|IND|NEPALESE|CHINESE|INDIAN|KENYAN|KOREAN|REPUBLIC|MINISTRY|PASSPORT|DEPARTMENT)\b/gi,' ').replace(/\s+/g,' ').trim();
+  return normalizeSpaces(tc(cleaned));
+}
+
+function nameQualityScore(name,mrzCountryCode){
+  if(!name) return 0;
+  var s=normalizeSpaces(String(name));
+  if(!s) return 0;
+  var words=s.split(' ');
+  var letters=(s.match(/[A-Za-z]/g)||[]).length;
+  var bad=(s.match(/[^A-Za-z\s\-']/g)||[]).length;
+  var shortWords=words.filter(function(w){return w.length===1;}).length;
+  var longWeird=words.filter(function(w){return w.length>12&&!/[AEIOU]/i.test(w);}).length;
+  var repeatedGarbage=words.filter(function(w){ return w.length>=6&&/(.)\1{4,}/i.test(w); }).length;
+  var lowDiversity=words.filter(function(w){
+    if(w.length<10) return false;
+    var uniq=(w.toUpperCase().match(/[A-Z]/g)||[]).filter(function(v,i,a){return a.indexOf(v)===i;}).length;
+    return uniq<=3;
+  }).length;
+  var score=0;
+  if(letters>=3) score+=20;
+  if(words.length>=1&&words.length<=4) score+=18;
+  if(/[AEIOU]/i.test(s)) score+=15;
+  if(/^[A-Za-z][A-Za-z\s\-']+$/.test(s)) score+=20;
+  score+=Math.min(20,letters);
+  score-=bad*15;
+  score-=shortWords*12;
+  score-=longWeird*18;
+  score-=repeatedGarbage*55;
+  score-=lowDiversity*35;
+  if(/\b(passport|passeport|document|nationality|republic|ministry|authority|expiry|date|valid|laissez|united|nations|uruguaya|uruguayan|colombiana|colombiano|italiana|italiano|francaise|belgique|camerounaise|cameroonian|ugandan|kenyan|ethiopian|nigerian|ghanaian|oriental|eastern|western|northern|southern)\b/i.test(s)) score-=40;
+  if(looksLikeMrzPollution(s,mrzCountryCode)) score-=45;
+  return score;
+}
+
+function normalizeNameForCompare(name){
+  return sanitizePersonName(name).toUpperCase().replace(/[^A-Z]/g,'');
+}
+
+function namesAgreeEnough(a,b){
+  if(!a||!b) return false;
+  var na=normalizeNameForCompare(a), nb=normalizeNameForCompare(b);
+  if(!na||!nb) return false;
+  if(na===nb) return true;
+  if(na.indexOf(nb)>=0||nb.indexOf(na)>=0) return true;
+  return tokenOverlapScore(a,b)>=0.6;
+}
+
+function normalizeNameForCompareFuzzy(name){
+  return sanitizePersonName(name).toUpperCase().split(/\s+|-/).filter(Boolean).map(function(t){
+    if(/^[KSL][A-Z]{3,}$/.test(t)) return t.slice(1);
+    if(/^[KSL]JI$/.test(t)) return 'JI';
+    return t;
+  }).join('');
+}
+
+function namesAgreeEnoughFuzzy(a,b){
+  if(namesAgreeEnough(a,b)) return true;
+  var fa=normalizeNameForCompareFuzzy(a), fb=normalizeNameForCompareFuzzy(b);
+  if(!fa||!fb) return false;
+  return fa===fb || fa.indexOf(fb)>=0 || fb.indexOf(fa)>=0;
+}
+
+function extractPassportLabeledNames(text){
+  var surname='',given='';
+  var flat=text.replace(/\r/g,'').replace(/\n+/g,'\n');
+
+  function cleanInline(v){
+    // Strip at any keyword that signals a new field (months, countries, field names)
+    var s=String(v||'');
+    s=s.split(/\b(?:Passport|Nationality|Date|Sex|Authority|Country|Republic|Ministry|January|February|March|April|May|June|July|August|September|October|November|December|Japan|China|Korea|India|France|Germany|Italy|Spain|Brazil|Russia|Canada|Australia)\b/i)[0];
+    return sanitizePersonName(s);
+  }
+
+  var inlineSurname=flat.match(/(?:^|\n)\s*(?:Surname|Nom(?: de famille)?|Apelido)\s*[:\-\/]*\s*([A-Z][A-Z\-\s']{1,40})/im);
+  var inlineGiven=flat.match(/(?:^|\n)\s*(?:Given\s*names?|Pr[eé]noms?|Nomes)\s*[:\-\/]*\s*([A-Z][A-Z\-\s']{1,40})/im);
+
+  function extractCleanName(raw){
+    // cleanInline: strip at field-boundary keywords
+    var s=String(raw||'');
+    s=s.split(/\b(?:Passport|Nationality|Date|Sex|Authority|Country|Republic|Ministry|January|February|March|April|May|June|July|August|September|October|November|December|Japan|China|Korea|India|France|Germany|Italy|Spain|Brazil|Russia|Canada|Australia|Registered|Domicile|Residence|Birth|Expiry|Issue)\b/i)[0];
+    s=sanitizePersonName(s);
+    if(!s) return '';
+    // If result contains multiple words and some look like kanji-OCR noise (no vowels or all-consonants),
+    // keep only the clean trailing word(s): e.g. "Laeaeaow Fas Ramsey" -> "Ramsey"
+    var words=s.split(/\s+/);
+    // Filter: keep words that are plausible names (2+ chars, has vowel, mostly alpha)
+    var clean=words.filter(function(w){ return w.length>=2&&/[AEIOUaeiou]/.test(w)&&/^[A-Za-z\-']+$/.test(w); });
+    if(clean.length===0) return s; // fallback: return as-is
+    return clean.join(' ');
+  }
+  if(inlineSurname) surname=extractCleanName(inlineSurname[1]);
+  if(inlineGiven) given=extractCleanName(inlineGiven[1]);
+
+  var lines=text.split('\n');
+  // Blacklist for bestLatin — any line containing these words is not a name
+  var BL_NAME=/\b(of|date|issue|expir|country|type|issuing|authority|bearer|must|valid|signed|passeport|passport|sex|domicile|registered|nationality|birth|place|residence|profession|occupation|personal|number|personal|january|february|march|april|may|june|july|august|september|october|november|december|japan|japanese|china|chinese|korea|korean|india|france|germany|italy|spain|ehime|osaka|tokyo|kyoto|fukuoka|sapporo|nagoya|yokohama|ministry|foreign|affairs)\b/i;
+  function bestLatin(arr){
+    for(var n=0;n<arr.length;n++){
+      var nx=arr[n].replace(/[|~*©\xae°<>@#$%^&*0-9]/g,'').trim();
+      nx=nx.split(' OR ')[0].trim();
+      // Strip leading kanji/noise prefix before first Latin uppercase letter
+      var latStart=nx.search(/[A-Za-z]/);
+      if(latStart>0) nx=nx.slice(latStart);
+      var words=nx.split(/\s+/).filter(function(w){return w.replace(/[^A-Za-z]/g,'').length>=2;});
+      nx=words.join(' ').trim();
+      if(!nx||nx.length<2) continue;
+      var lt=nx.replace(/[^A-Za-z\-']/g,'');
+      var lnx=nx.toLowerCase();
+      if(BL_NAME.test(lnx)) continue;
+      // Accept: purely alpha, 2-40 chars, has a vowel (real name token)
+      if(lt.length>=2&&lt.length<=40&&/[AEIOUaeiou]/.test(lt)) return sanitizePersonName(nx);
+    }
+    return '';
+  }
+  for(var i=0;i<lines.length;i++){
+    var up=lines[i].toUpperCase().trim();
+    if(up.length>80) continue; // increased from 45 to handle bilingual labels
+    var nexts=[];
+    for(var j=i+1;j<Math.min(i+5,lines.length)&&nexts.length<3;j++){ if(lines[j].trim()) nexts.push(lines[j].trim()); }
+    var isSurname=up==='SURNAME'||up==='SUMAME'||up==='NOM'||up==='APELIDO'||up.indexOf('SURNAME/NOM')>=0||up.indexOf('NOM/SURNAME')>=0||up.indexOf('SUMAME/NOM')>=0||up.indexOf('APELIDO')>=0||(up.indexOf('SURNAME')>=0&&up.indexOf('/')>=0);
+    // Japanese bilingual labels: 姓/Surname, 名/Given name (kanji may OCR to noise)
+    if(!isSurname) isSurname=up.indexOf('/SURNAME')>=0||/^[^A-Z]{0,8}SURNAME/.test(up);
+    var isGiven=up==='GIVEN NAMES'||up==='GIVEN NAME'||up==='PRÉNOMS'||up==='PRENOMS'||up.indexOf('GIVEN NAME')>=0||up.indexOf('PRENOMS')>=0||up.indexOf('PRENOM')>=0||up.indexOf('NOMES')>=0||up.indexOf('VOORNAMEN')>=0||up.indexOf('VOOMAMEN')>=0||up.indexOf('VOORNAMEN')>=0||/^\d[\s.]+NAME/.test(up)||(up.indexOf('/NAME')>=0&&up.length<80);
+    if(!isGiven) isGiven=up.indexOf('/GIVEN NAME')>=0||/^[^A-Z]{0,8}GIVEN NAME/.test(up);
+    if(isSurname&&!surname){ var r=bestLatin(nexts); if(r) surname=r; }
+    if(isGiven&&!given){ var g=bestLatin(nexts); if(g) given=g; }
+  }
+  // Fallback: if given name not found but surname was found,
+  // look for the next all-caps line after the surname line
+  // (handles bilingual passports where 'Given Names' label is garbled)
+  if(surname&&!given){
+    var lines3=flat.split('\n');
+    for(var li=0;li<lines3.length;li++){
+      var lup=lines3[li].toUpperCase().replace(/[^A-Z\s]/g,'').trim();
+      if(lup===surname.toUpperCase()){
+        // Look at the next 1-2 lines for a caps name
+        for(var lj=li+1;lj<=li+3&&lj<lines3.length;lj++){
+          var nxt=lines3[lj].replace(/[|~*©®°<>]/g,'').trim();
+          var nxtUp=nxt.toUpperCase().replace(/[^A-Z\s]/g,'').trim();
+          // Must be all-caps, 3-30 chars, looks like a name (has vowel)
+          if(/^[A-Z][A-Z\s]{2,29}$/.test(nxtUp)&&/[AEIOU]/.test(nxtUp)&&nxtUp!==surname.toUpperCase()){
+            // Avoid nationality/country words and garbled labels
+            // Also require each word to be >= 2 chars (filters "R COVEN NORMES" etc.)
+            var nxtWords=nxtUp.trim().split(/\s+/);
+            var allWordsLong=nxtWords.every(function(ww){return ww.length>=2;});
+            if(allWordsLong&&!/^(NEPALESE|CHINESE|INDIAN|KENYAN|ITALIAN|SPANISH|KOREAN)/.test(nxtUp)){
+              given=nxtUp; break;
+            }
+          }
+        }
+        if(given) break;
+      }
+    }
+  }
+  return {surname:surname,given:given};
+}
+
+function extractPassportCapsNames(text){
+  var surname='',given='';
+  var SKIP={OBSERVATIONS:1,PASSPORT:1,PASSEPORT:1,PASSAPORTE:1,DOCUMENT:1,AUSTRALIAN:1,AUSTRALIA:1,NATIONALITY:1,NATIONAL:1,REPUBLIC:1,MINISTRY:1,HELLAS:1,HELLENIC:1,CANADA:1,CANADIAN:1,CANADIENNE:1,MONTREAL:1,FRANCE:1,ITALY:1,INTERNATIONAL:1,ORGANIZATION:1,UNITED:1,NATIONS:1,MALE:1,FEMALE:1,PORTUGUESA:1,PORTUGUESE:1,LONDON:1,VANCOUVER:1,SYDNEY:1,TORONTO:1,
+    // Nationality adjectives that appear in passports but are NOT names
+    URUGUAYA:1,URUGUAYAN:1,URUGUAY:1,COLOMBIANA:1,COLOMBIANO:1,COLOMBIAN:1,ITALIANA:1,ITALIANO:1,FRANCAISE:1,FRANCAIS:1,BELGE:1,BELGA:1,UGANDAN:1,KENYAN:1,ETHIOPIAN:1,NIGERIAN:1,CAMEROONIAN:1,CAMEROUNAISE:1,ORIENTAL:1,EASTERN:1,WESTERN:1,NORTHERN:1,SOUTHERN:1,MRREE:1,ACCOUNTANT:1,CONSULTANT:1,PROFESSION:1,OCCUPATION:1,
+    // Common words in passport headers that are not names
+    DEL:1,THE:1,DES:1,LES:1,DER:1,VAN:1,VON:1,KINGDOM:1,DEMOCRATIC:1,FEDERAL:1,PEOPLE:1,PEOPLES:1,SOCIALIST:1,
+    // Country/nation adjectives
+    JAPAN:1,JAPANESE:1,FRENCH:1,GERMAN:1,ITALIAN:1,BRITISH:1,SPANISH:1,AMERICAN:1,RUSSIAN:1,CHINESE:1,KOREAN:1,BRAZILIAN:1,
+    // Months (appear on same page as MRZ near date of birth)
+    JANUARY:1,FEBRUARY:1,MARCH:1,APRIL:1,JUNE:1,JULY:1,AUGUST:1,SEPTEMBER:1,OCTOBER:1,NOVEMBER:1,DECEMBER:1,
+    // Japanese prefectures and cities often OCR'd from domicile field
+    EHIME:1,OSAKA:1,KYOTO:1,FUKUOKA:1,SAPPORO:1,NAGOYA:1,YOKOHAMA:1,TOKYO:1,MINISTRY:1,FOREIGN:1,AFFAIRS:1,DOMICILE:1,REGISTERED:1};
+  var SKIP_MULTI={'CANADIAN CANADIENNE':1,'PASSPORT CANADA':1,'REPUBLIC PORTUGUESA':1};
+  var lines2=text.split('\n').map(function(l){ return l.replace(/[|~<>©®°@#$%^&*]/g,'').replace(/\*/g,' ').replace(/\s{2,}/g,' ').trim(); }).filter(function(l){return l.length>=3;});
+  for(var k=0;k<lines2.length;k++){
+    var lc=lines2[k];
+    if(/^[A-Z][A-Z\-]{2,21}$/.test(lc)&&/[AEIOU]/.test(lc)&&!SKIP[lc]){
+      if(!surname){surname=sanitizePersonName(lc);continue;}
+      if(!given&&lc!==surname){given=sanitizePersonName(lc);break;}
+    }
+    var words=lc.split(/\s+/);
+    // Filter to only alpha words before checking allCaps (removes @, numbers, symbols)
+    var alphaWords=words.filter(function(w){return /^[A-Za-z]+$/.test(w);});
+    if(alphaWords.length<2||alphaWords.length>8) continue;
+    var allCaps=alphaWords.every(function(w){return /^[A-Z]{1,}$/.test(w);});
+    if(!allCaps) continue;
+    var half=Math.floor(alphaWords.length/2);
+    if(half>=2&&alphaWords.slice(0,half).join('')===alphaWords.slice(half).join('')) continue;
+    var longWords=alphaWords.filter(function(w){return w.length>=3;}).length;
+    var notSkip=!SKIP_MULTI[lc]&&!SKIP[alphaWords[0]]&&!SKIP[alphaWords[alphaWords.length-1]];
+    if(longWords>=2&&/[AEIOU]/.test(lc)&&lc.length<=50&&notSkip){
+      var cleaned=sanitizePersonName(alphaWords.filter(function(w){return w.length>=2;}).join(' '));
+      if(!cleaned||cleaned.length<3) continue;
+      if(!surname){surname=cleaned;continue;}
+      if(!given&&cleaned!==surname){given=cleaned;break;}
+    }
+  }
+  return {surname:surname,given:given};
+}
+
+function extractPassportPrintedNationality(text){
+  if(!text) return '';
+  var flat=String(text||'').replace(/\r/g,'').replace(/\n+/g,'\n');
+  var m=flat.match(/(?:Nationality|Nationalite|Nacionalidad)[^A-Z\n]{0,10}([A-Z][A-Z\s]{2,30})/i);
+  if(m){
+    var raw=m[1].split(/\b(?:Date|Birth|Sex|Place|Issue|Expiry|Authority|Personal)\b/i)[0].trim().toUpperCase();
+    if(raw==='KENYAN') return 'the Republic of Kenya';
+    if(raw==='TUR'||raw==='TURKISH') return 'the Republic of Türkiye';
+    if(raw==='REPUBLIC OF KOREA'||raw==='KOREAN') return 'the Republic of Korea';
+    if(raw==='ITALIANA'||raw==='ITALIANO') return 'the Italian Republic';
+    if(raw==='ESPANOLA'||raw==='ESPANOL') return 'the Kingdom of Spain';
+    if(raw==='NEPALESE') return 'the Federal Democratic Republic of Nepal';
+    if(raw==='CHINESE') return "the People's Republic of China";
+    if(raw==='INDIAN') return 'the Republic of India';
+  }
+  return '';
+}
+
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  5. ESTRATTORI DOCUMENTI  (tc · extractPassport · extractLP · extractMAECI)║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+// ── Extractors ────────────────────────────────────────────────────────────────
+
+function extractPassportPrintedDocNum(text){
+  if(!text) return '';
+  var cleaned=String(text||'').toUpperCase().replace(/[\r\n]+/g,' ');
+  var m=cleaned.match(/(?:Passport\s*No\.?|Passport\s*No|Document\s*No\.?|No\.?\s*Passeport|No\.?\s*de\s*Passeport)[^A-Z0-9]{0,8}([A-Z0-9\s]{6,18})/i)
+      || cleaned.match(/(?:^|\b)([A-Z]{1,2}\d[A-Z0-9]{5,8})(?:\b|$)/)
+      || cleaned.match(/(?:^|\b)([A-Z]{1,2}\d{6,8})(?:\b|$)/)
+      || cleaned.match(/(?:^|\b)([A-Z]\d{7,8})(?:\b|$)/);
+  if(!m) return '';
+  var raw=(m[1]||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  raw=raw.replace(/O/g,'0');
+  if(raw.length<7||raw.length>10) return '';
+  if(!/[A-Z]/.test(raw) || !/\d/.test(raw)) return '';
+  return raw;
+}
+
+function extractStructuredMrzData(text){
+  var lines=String(text||'').split('\n').map(function(l){
+    return l.toUpperCase().replace(/[^A-Z0-9<>]/g,'').replace(/>/g,'<').trim();
+  }).filter(Boolean);
+  var cands=lines.filter(function(l){
+    var mrzish=(l.match(/[<]/g)||[]).length;
+    return l.length>=24 && (mrzish>=1 || /^P[A-Z0-9<]/.test(l));
+  });
+  var line1='',line2='';
+  for(var i=0;i<cands.length;i++){
+    var a=cands[i], b=cands[i+1]||'';
+    if(!line1 && /^P[A-Z0-9<]/.test(a) && /[A-Z]{3}/.test(a.slice(2,8))) line1=a;
+    if(!line2 && /^[A-Z0-9<]{20,}$/.test(a) && /[MF<][0-9]{6}/.test(a)) line2=a;
+    if(/^P[A-Z0-9<]/.test(a) && b && /^[A-Z0-9<]{20,}$/.test(b) && /[MF<][0-9]{6}/.test(b)){
+      line1=a; line2=b; break;
+    }
+  }
+  var out={surname:'',given:'',docNum:'',expiry:'',gender:'',countryCode:''};
+
+  function mrzNameQuality(sn,gn){
+    var s=sanitizePersonName(sn), g=sanitizePersonName(gn);
+    if(!s||!g) return -999;
+    var joined=(s+' '+g).toUpperCase();
+    var score=0;
+    score+=nameQualityScore(s,'')+nameQualityScore(g,'');
+    if(/\b(P|PM|LP|KEN|KOR|TUR|UNO|UNA)\b/.test(joined)) score-=40;
+    if(/[A-Z]{12,}/.test(joined.replace(/\s+/g,''))) score-=25;
+    if((s.split(/\s+/).length+g.split(/\s+/).length)>=2) score+=15;
+    return score;
+  }
+
+  function parseNameZone(zone){
+    var variants=[];
+    zone=String(zone||'');
+    variants.push(zone);
+    // OCR sometimes reads MRZ filler '<' as K/S/L. The safest repair is local:
+    // only when that letter appears exactly where a separator normally sits.
+    // Example Korea: JUNG<<KYUN<KJI -> JUNG<<<YUN<<JI -> JUNG / YUN JI.
+    // Repair OCR that inserts a fake leading letter immediately after MRZ separators.
+    // Example: JUNG<<KYUN<KJI should be read as JUNG<<YUN<JI.
+    // This variant removes the fake K/S/L after an existing separator instead of adding
+    // more '<' chars, avoiding the old triple-< truncation issue.
+    variants.push(zone.replace(/(<<|<)K(?=[A-Z]{2,})/g,'$1'));
+    variants.push(zone.replace(/(<<|<)S(?=[A-Z]{2,})/g,'$1'));
+    variants.push(zone.replace(/(<<|<)L(?=[A-Z]{2,})/g,'$1'));
+    variants.push(zone.replace(/(<<|<)[KSL](?=[A-Z]{2,})/g,'$1'));
+    // Keep the previous separator-expansion variants as lower-priority fallbacks.
+    variants.push(zone.replace(/(<+)K(?=[A-Z]{2,})/g,'$1<'));
+    variants.push(zone.replace(/(<+)S(?=[A-Z]{2,})/g,'$1<'));
+    variants.push(zone.replace(/(<+)L(?=[A-Z]{2,})/g,'$1<'));
+    variants.push(zone.replace(/(<+)[KSL](?=[A-Z]{2,})/g,'$1<'));
+    // If true separators are mostly missing, use aggressive whole-line variants.
+    // This is required for scans where ODHIAMBO<<LINDA<NEREAH<JALOO becomes
+    // ODHIAMBOKKLINDASKNEREAHKJALOOLK.
+    if(zone.indexOf('<<')<0 || (zone.match(/</g)||[]).length<2){
+      variants.push(zone.replace(/K/g,'<'));
+      variants.push(zone.replace(/K/g,'<').replace(/S(?=[A-Z])/g,'<').replace(/L(?=$|[<KL])/g,'<'));
+      variants.push(zone.replace(/[KSL]/g,'<'));
+    }
+    variants.push(zone.replace(/K{2,}/g,function(m){return '<'.repeat(m.length);})
+                      .replace(/S{3,}/g,function(m){return '<'.repeat(m.length);})
+                      .replace(/L{3,}/g,function(m){return '<'.repeat(m.length);}));
+    var best={surname:'',given:'',score:-999};
+    variants.forEach(function(v,idx){
+      var z=v.replace(/<{3,}.*/,'');
+      var bits=z.split('<<');
+      var sn='',gn='';
+      if(bits.length>=2){
+        sn=bits[0].replace(/<+/g,' ');
+        gn=bits.slice(1).join('<').replace(/<+/g,' ');
+      }else{
+        var toks=z.split('<').filter(function(t){return t&&t.length>=2;});
+        if(toks.length>=2){ sn=toks[0]; gn=toks.slice(1).join(' '); }
+      }
+      var sc=mrzNameQuality(sn,gn);
+      if(idx>0){
+        var originalTokens=zone.split(/[<]+/).filter(Boolean);
+        var repairedTokens=String(v).split(/[<]+/).filter(Boolean);
+        for(var rt=0;rt<repairedTokens.length;rt++){
+          var rep=repairedTokens[rt];
+          for(var ot=0;ot<originalTokens.length;ot++){
+            var orig=originalTokens[ot];
+            if(orig.length>rep.length && orig.slice(1)===rep && /^[KSL]/.test(orig)){
+              if(rep.length>=3 || rep==='JI') sc+=8;
+            }
+          }
+        }
+      }
+      if(sc>best.score){ best={surname:sanitizePersonName(sn),given:sanitizePersonName(gn),score:sc}; }
+    });
+    return best.score>-100 ? best : {surname:'',given:'',score:-999};
+  }
+
+  if(line1){
+    // Detect issuing country near the start instead of trusting exact positions.
+    var cc='', nameStart=5;
+    for(var ci=1;ci<=4;ci++){
+      var cand=line1.slice(ci,ci+3).replace(/</g,'');
+      if(ISO3_TO_COUNTRY[cand]||ISO2_TO_COUNTRY[cand]){ cc=cand; nameStart=ci+3; break; }
+    }
+    if(cc) out.countryCode=cc;
+    var parsed=parseNameZone(line1.slice(nameStart));
+    out.surname=parsed.surname;
+    out.given=parsed.given;
+  }
+  if(line2){
+    var doc=line2.slice(0,9).replace(/</g,'').replace(/O/g,'0');
+    if(/^[A-Z]{1,2}\d{5,7}0{1,2}$/.test(doc)) doc=doc.replace(/0+$/,'');
+    if(/^[A-Z0-9]{5,9}$/.test(doc)) out.docNum=doc;
+    var cc2=line2.slice(10,13).replace(/</g,'');
+    if((ISO3_TO_COUNTRY[cc2]||ISO2_TO_COUNTRY[cc2])) out.countryCode=cc2;
+    var sex=(line2[20]||'').replace(/</g,'');
+    if(/[MF]/.test(sex)) out.gender=sex;
+    var exp=line2.slice(21,27);
+    if(/^\d{6}$/.test(exp)){
+      var yy=parseInt(exp.slice(0,2),10); var yyyy=yy<=39?2000+yy:1900+yy;
+      out.expiry=eng(exp.slice(4,6),exp.slice(2,4),String(yyyy));
+    }
+  }
+  return out;
+}
+
+function chooseReliableName(printed,mrz,caps,mrzCountryCode){
+  var printedClean=sanitizePersonName(printed);
+  var mrzClean=sanitizePersonName(mrz);
+  var capsClean=sanitizePersonName(caps);
+  var printedScore=nameQualityScore(printedClean,mrzCountryCode);
+  var mrzScore=nameQualityScore(mrzClean,mrzCountryCode);
+  var capsScore=nameQualityScore(capsClean,mrzCountryCode);
+
+  if(printedClean&&mrzClean&&namesAgreeEnoughFuzzy(printedClean,mrzClean)){
+    var pTokens=tokenizeName(printedClean), mTokens=tokenizeName(mrzClean);
+    var setMrz={}; mTokens.forEach(function(t){setMrz[t]=1;});
+    var printedExtras=pTokens.filter(function(t){return !setMrz[t];});
+    if(printedExtras.length){
+      var shortOrNoisyExtras=printedExtras.filter(function(t){
+        return t.length<=2 || /(.)\1{2,}/i.test(t) || /^[A-Z]{1,2}$/.test(t);
+      }).length;
+      if(shortOrNoisyExtras===printedExtras.length || pTokens.length>mTokens.length){
+        return mrzClean;
+      }
+    }
+    return printedScore>=mrzScore ? printedClean : mrzClean;
+  }
+  if(mrzClean && (!printedClean || mrzScore>=printedScore+8)) return mrzClean;
+  if(printedClean && (!mrzClean || printedScore>=mrzScore+8)) return printedClean;
+  if(capsClean && capsScore>=Math.max(printedScore,mrzScore)+8) return capsClean;
+  return chooseBestNameFromCandidates([
+    {value:printedClean,source:'printed'},
+    {value:mrzClean,source:'mrz'},
+    {value:capsClean,source:'caps'}
+  ],mrzCountryCode);
+}
+
+function tc(s){ return s.toLowerCase().replace(/(^|\s|-)(\w)/g,function(_,a,b){return a+b.toUpperCase();}); }
+
+function extractPassport(text){
+  var mrzLegacy=parseMRZ(text);
+  var mrzDirect=extractStructuredMrzData(text);
+  // parseMRZ (legacy) has all specific fixes for OCR noise patterns.
+  // extractStructuredMrzData (direct) is a fallback for clean MRZ lines.
+  // Priority: our fixed parser first, GPT direct as fallback.
+  // Post-process: fix C-as-separator in given name (e.g. AYECMON → AYE MON)
+  function fixCsep(s){
+    if(!s) return s;
+    return s.split(' ').map(function(w){
+      if(w.length<5||w.length>9) return w;
+      var mCx=w.match(/^([A-Z]{2,4})C([A-Z]{2,4})$/i);
+      if(mCx&&/[AEIOU]/i.test(mCx[1])&&/[AEIOU]/i.test(mCx[2])) return mCx[1]+' '+mCx[2];
+      return w;
+    }).join(' ');
+  }
+  var mrz={
+    surname: mrzLegacy.surname || mrzDirect.surname,
+    given: fixCsep(mrzLegacy.given || mrzDirect.given),
+    docNum: mrzLegacy.docNum || mrzDirect.docNum,
+    expiry: mrzLegacy.expiry || mrzDirect.expiry,
+    gender: mrzLegacy.gender || mrzDirect.gender,
+    countryCode: mrzLegacy.countryCode || mrzDirect.countryCode
+  };
+  var docNum=mrz.docNum, expiry=mrz.expiry, gender=mrz.gender;
+  // Safety strip: all docNum formats
+  if(docNum&&/^\d{8,9}$/.test(docNum)&&docNum.slice(-1)==='0') docNum=docNum.slice(0,-1);
+  if(docNum&&/^[A-Z]{2}\d{8}$/.test(docNum)) docNum=docNum.slice(0,-2); // 2L+8D final strip
+  if(docNum&&/^[A-Z]{2}\d{7}$/.test(docNum)&&docNum.slice(-1)==='0') docNum=docNum.slice(0,-1);
+  if(docNum&&/^[A-Z]\d{8}$/.test(docNum)&&docNum.slice(-1)==='0') docNum=docNum.slice(0,-1);
+  if(docNum&&/^[A-Z]\d{6}0$/.test(docNum)) docNum=docNum.slice(0,-1); // 1L+6D+trailing0
+  // Prefer DIR docNum when LEG has no letter prefix but DIR does
+  if(mrzDirect.docNum&&/^[A-Z]/.test(mrzDirect.docNum)&&!/^[A-Z]/.test(docNum)){
+    docNum=mrzDirect.docNum;
+  }
+  var labeledNames=extractPassportLabeledNames(text);
+  var capsNames=extractPassportCapsNames(text);
+  var printedDocNum=extractPassportPrintedDocNum(text);
+  var printedNationality=extractPassportPrintedNationality(text);
+
+
+
+
+
+
+  var surname=chooseReliableName(labeledNames.surname,mrz.surname,capsNames.surname,mrz.countryCode);
+  var given=chooseReliableName(labeledNames.given,mrz.given,capsNames.given,mrz.countryCode);
+
+  var printedSurnamePresent=!!sanitizePersonName(labeledNames.surname);
+  var printedGivenPresent=!!sanitizePersonName(labeledNames.given);
+  var printedAgree=(!!labeledNames.surname&&!!mrz.surname&&namesAgreeEnoughFuzzy(labeledNames.surname,mrz.surname))
+                && (!!labeledNames.given&&!!mrz.given&&namesAgreeEnoughFuzzy(labeledNames.given,mrz.given));
+
+  // Cross-check strategy: use MRZ as authoritative source, but correct with printed text
+  // MRZ gives reliable structure (surname/given split), printed text gives correct spelling
+  var mrzSn=mrz.surname||'', mrzGn=mrz.given||'';
+  var prnSn=sanitizePersonName(labeledNames.surname||'');
+  var prnGn=sanitizePersonName(labeledNames.given||'');
+
+  // If labeled names not found, validate MRZ tokens against OCR text
+  // For each MRZ token, check if a cleaner version exists in the OCR text
+  // using prefix matching (first 3 chars) - avoids country/place pollution
+  var MRZ_NOISE_WORDS=/^(REPUBLIC|ORIENTAL|URUGUAY|URUGUAYA|COLOMBIANA|ITALIANA|FRANCAISE|BELGE|UGANDAN|KENYAN|CAMEROONIAN|MRREE|DEL|THE|VAN|VON|KINGDOM|DEMOCRATIC|FEDERAL|PEOPLES|SOCIALIST|ACCOUNTANT|CONSULTANT|AUTHORITY|PASSPORT|NATIONALITY|DOCUMENT|NAMES|GIVEN|SURNAME|APELLIDOS|NOMBRES|DATE|BIRTH|ISSUE|EXPIRY|LUGAR|FECHA|POSEN|ROME|ROMA|MILAN|PARIS|LONDON|BERLIN|MADRID|TOKYO|MOSCOW|BEIJING|DELHI|CAIRO|JAPAN|JAPANESE|JANUARY|FEBRUARY|MARCH|APRIL|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER|EHIME|OSAKA|KYOTO|FUKUOKA|SAPPORO|NAGOYA|YOKOHAMA|FOREIGN|AFFAIRS|MINISTRY|REGISTERED|DOMICILE|ISSUING|COUNTRY|BEARING|HOLDER|TYPE)$/;
+  function validateMrzToken(mrzTok, ocrText){
+    if(mrzTok.length<4) return mrzTok;
+    var upper=ocrText.toUpperCase();
+    // 1. Exact match → MRZ token is correct
+    if(new RegExp('(?:^|\\s)'+mrzTok+'(?:\\s|$)').test(upper)) return mrzTok;
+    // 2. Single OCR token: same first 3 chars, length ±1, not noise
+    var prefix=mrzTok.slice(0,3);
+    var candidates=(upper.match(/\b[A-Z]{4,}\b/g)||[]).filter(function(t){
+      return t.slice(0,3)===prefix && !MRZ_NOISE_WORDS.test(t) &&
+             Math.abs(t.length-mrzTok.length)<=1;
+    });
+    if(candidates.length>0){
+      candidates.sort(function(a,b){return a.length-b.length;});
+      return candidates[0];
+    }
+    // 3. Two adjacent OCR words that together reconstruct the MRZ token
+    // e.g. OCR reads JONCKHEERE as "JONC HEERE" (K becomes space)
+    // Try: part1+part2 == mrzTok, or part1+'K'+part2 == mrzTok
+    var words=upper.match(/[A-Z]{3,}/g)||[];
+    for(var wi=0;wi<words.length-1;wi++){
+      var p1=words[wi], p2=words[wi+1];
+      if(!p1.startsWith(prefix)) continue;
+      if(p1+p2===mrzTok||(p1+'K'+p2)===mrzTok||(p1+'C'+p2)===mrzTok){
+        return mrzTok; // MRZ token is the correct reconstruction
+      }
+    }
+    return mrzTok;
+  }
+  if(!prnGn&&mrz.given){
+    var gToks=mrz.given.split(/\s+/).filter(function(w){return w.length>=4;});
+    prnGn=gToks.map(function(t){
+      var v=validateMrzToken(t,text);
+      return v[0]+v.slice(1).toLowerCase();
+    }).join(' ');
+  }
+  if(!prnSn&&mrz.surname){
+    var sToks=mrz.surname.split(/\s+/).filter(function(w){return w.length>=4;});
+    prnSn=sToks.map(function(t){
+      var v=validateMrzToken(t,text);
+      return v[0]+v.slice(1).toLowerCase();
+    }).join(' ');
+  }
+
+
+  function crossCorrect(mrzName, prnName){
+    if(!mrzName) return prnName||'';
+    if(!prnName) return sanitizePersonName(mrzName);
+    function isFillerToken(w){
+      if(w.length<2) return true;
+      if(w.length===2&&/^[KLXSHC]{2}$/.test(w)) return true;
+      if(w.split('').every(function(c){return c==='K'||c==='L';})) return true;
+      if(w.length>=3&&w[0]===w[1]&&'AEIOU'.indexOf(w[0])<0) return true;
+      if(/[AEIOU]/.test(w.slice(0,6))) return false;
+      var nc=w.split('').filter(function(c){return 'KLXSHC'.indexOf(c)>=0;}).length;
+      return w.length>=3&&nc/w.length>0.65;
+    }
+    var ptUpper2=prnName?prnName.toUpperCase():'';
+    var mt=sanitizePersonName(mrzName).toUpperCase().split(/\s+/).filter(function(w){
+      if(w.length>=2) return !isFillerToken(w);
+      // Single uppercase letter: only keep if confirmed by printed text
+      if(w.length===1&&/^[A-Z]$/.test(w)) return ptUpper2.split(/\s+/).indexOf(w)>=0;
+      return false;
+    });
+    var pt=prnName.toUpperCase().split(/\s+/).filter(function(w){return w.length>=2;});
+    var usedPt=[];
+    // For each MRZ token, find best matching printed token
+    var result=mt.map(function(mw){
+      var match=null, matchIdx=-1;
+      for(var pi=0;pi<pt.length;pi++){
+        if(usedPt.indexOf(pi)>=0) continue;
+        var pw=pt[pi];
+        // Exact prefix match (first 3 chars)
+        if(pw.slice(0,3)===mw.slice(0,3)){match=pw;matchIdx=pi;break;}
+        // 1-char noise prefix: ZEMILIO→EMILIO, or KSTEVEN→STEVEN
+        if(mw.length>3&&mw.slice(1,4)===pw.slice(0,3)){match=pw;matchIdx=pi;break;}
+        // 1-char missing at start: TEVEN matches STEVEN (pw.slice(1)===mw)
+        if(pw.length>3&&mw.length>3&&pw.slice(1)===mw){match=pw;matchIdx=pi;break;}
+        // Also: mw missing first char (OCR dropped leading letter)
+        if(mw.length>3&&pw.length>3&&mw.slice(1)===pw.slice(1)&&pw.length===mw.length+1){match=pw;matchIdx=pi;break;}
+        // Long suffix match: last 4+ chars match (EVEN in TEVEN/STEVEN)
+        var sfx=Math.min(mw.length,pw.length)-1;
+        if(sfx>=4&&pw.slice(-sfx)===mw.slice(-sfx)){match=pw;matchIdx=pi;break;}
+      }
+      if(match){
+        usedPt.push(matchIdx);
+        // If match was found via suffix (pw.slice(1)===mw), accept directly
+        if(match.slice(1)===mw||match.slice(0,3)===mw.slice(0,3)) return match;
+        // Otherwise sim-check: compare overlapping part
+        var mComp=mw.length>3?mw.slice(1):mw;
+        var matchComp=match.length>mComp.length?match.slice(match.length-mComp.length):match;
+        var sim=0;
+        for(var i=0;i<Math.min(mComp.length,matchComp.length);i++) if(mComp[i]===matchComp[i]) sim++;
+        if(sim/Math.max(mComp.length,matchComp.length)>0.5) return match;
+      }
+      return mw;
+    });
+    // Add unmatched printed tokens (length>=2, but singles only if they look like initials)
+    pt.forEach(function(pw,pi){
+      if(usedPt.indexOf(pi)>=0) return;
+      var dup=result.some(function(rw){return rw.slice(0,3)===pw.slice(0,3)||(rw.length>1&&rw.slice(1,4)===pw.slice(0,3));});
+      if(!dup&&pw.length>=4) result.push(pw);
+      // Single letter initials from printed text (e.g. 'F' from 'Steven Raoul F.')
+      if(!dup&&pw.length===1&&/^[A-Z]$/.test(pw)) result.push(pw);
+    });
+    return result.map(function(w){return w[0]+w.slice(1).toLowerCase();}).join(' ');
+  }
+
+  if(mrzSn){
+    // Only apply crossCorrect when we have printed text to correct against
+    // When prnName is empty, keep the chooseReliableName result (which uses capsNames)
+    if(prnSn) surname=crossCorrect(mrzSn, prnSn);
+    if(prnGn) given=crossCorrect(mrzGn, prnGn);
+    // If no printed name found, still clean the MRZ name (remove noise tokens)
+    if(!prnSn) surname=sanitizePersonName(mrzSn);
+    if(!prnGn) given=sanitizePersonName(mrzGn);
+  } else if(prnSn||prnGn){
+    surname=prnSn; given=prnGn;
+  }
+
+  if(printedDocNum){
+    // Apply same stripping rules to printed docNum as MRZ docNum
+    var pdn=printedDocNum;
+    if(/^[A-Z]{2}\d{8}$/.test(pdn)) pdn=pdn.slice(0,-2); // 2L+8D -> 2L+6D
+    if(/^[A-Z]{2}\d{7}$/.test(pdn)&&pdn.slice(-1)==='0') pdn=pdn.slice(0,-1);
+    if(/^[A-Z]\d{7}0$/.test(pdn)) pdn=pdn.slice(0,-1);
+    printedDocNum=pdn;
+    var mrzLeadL=docNum?(docNum.match(/^([A-Z]+)/)||['',''])[1].length:0;
+    var printedLeadL=(printedDocNum.match(/^([A-Z]+)/)||['',''])[1].length;
+    if(!docNum || (printedLeadL>mrzLeadL && printedDocNum.length>=Math.max((docNum||'').length-1,0)) || (/^[A-Z]/.test(printedDocNum)&&!(/^[A-Z]/.test(docNum||'')))){
+      docNum=printedDocNum;
+    }
+  }
+  // Only use mrzDirect docNum if legacy didn't find one, or direct is clearly better
+  // (more leading letters = more complete number, e.g. NP8J851J0 > P8J851J0)
+  if(mrzDirect.docNum && !mrzLegacy.docNum){
+    // Apply same strip rules before using mrzDirect docNum
+    var ddn=mrzDirect.docNum;
+    if(/^[A-Z]{2}\d{8}$/.test(ddn)) ddn=ddn.slice(0,-2);
+    if(/^[A-Z]{2}\d{7}$/.test(ddn)&&ddn.slice(-1)==='0') ddn=ddn.slice(0,-1);
+    if(/^[A-Z]\d{7}0$/.test(ddn)) ddn=ddn.slice(0,-1);
+    if(/^[A-Z]\d{8}$/.test(ddn)&&ddn.slice(-1)==='0') ddn=ddn.slice(0,-1);
+    if(/^[A-Z0-9]{5,9}$/.test(ddn)) docNum=ddn;
+  }
+
+  if(!gender){
+    var gm=text.match(/(?:Sex|Sexe|Sesso)[\s\/]*(?:Sexe|Sexo|Geschlecht)?[:\s]*([MF])\b/i)
+            ||text.match(/^([MF])$/m);
+    if(gm) gender=gm[1].toUpperCase();
+  }
+
+  if(!expiry) expiry=getExpiry(text);
+
+  surname=sanitizePersonName(surname);
+  given=sanitizePersonName(given);
+
+  // Direct fix: if 'RAM' appears clearly in OCR text but given has 'RAN', correct it
+  // This handles M→N OCR confusion in MRZ when the printed field is legible
+  if(given&&/\bRan\b/i.test(given)&&/\bRAM\b/.test(text)){
+    given=given.replace(/\bRan\b/gi,'Ram');
+  }
+  // Same for surname
+  if(surname&&/\bRan\b/i.test(surname)&&/\bRAM\b/.test(text)){
+    surname=surname.replace(/\bRan\b/gi,'Ram');
+  }
+
+  var sn=tc(surname), gn=tc(given);
+  var title=gender==='F'?'Ms':'Mr';
+  // If countryCode is invalid, try to recover from printed country name in the text
+  var CNAME_TO_ISO3={
+    'CAMEROON':'CMR','CAMEROUN':'CMR','CAMEROUNAISE':'CMR','CAMEROONIAN':'CMR',
+    'FRANCE':'FRA','FRANCAISE':'FRA','FRENCH':'FRA','REPUBLIQUE FRANCAISE':'FRA',
+    'ITALY':'ITA','ITALIANA':'ITA','ITALIAN':'ITA','REPUBBLICA ITALIANA':'ITA',
+    'UGANDA':'UGA','UGANDAN':'UGA','REPUBLIC OF UGANDA':'UGA',
+    'COLOMBIA':'COL','COLOMBIANA':'COL','COLOMBIAN':'COL',
+    'KENYA':'KEN','KENYAN':'KEN','REPUBLIC OF KENYA':'KEN',
+    'ETHIOPIA':'ETH','ETHIOPIAN':'ETH','FEDERAL DEMOCRATIC REPUBLIC OF ETHIOPIA':'ETH',
+    'NIGERIA':'NGA','NIGERIAN':'NGA','FEDERAL REPUBLIC OF NIGERIA':'NGA',
+    'GHANA':'GHA','GHANAIAN':'GHA','REPUBLIC OF GHANA':'GHA',
+    'SENEGAL':'SEN','SENEGALESE':'SEN',
+    'MOROCCO':'MAR','MOROCCAN':'MAR',
+    'EGYPT':'EGY','EGYPTIAN':'EGY',
+    'GERMANY':'DEU','GERMAN':'DEU',
+    'SPAIN':'ESP','SPANISH':'ESP',
+    'UNITED KINGDOM':'GBR','BRITISH':'GBR',
+    'UNITED STATES':'USA','AMERICAN':'USA'
+  };
+  if(!mrz.countryCode||(!(ISO3_TO_COUNTRY[mrz.countryCode])&&!(ISO2_TO_COUNTRY[mrz.countryCode]))){
+    var textUp2=text.toUpperCase();
+    var foundCC=null;
+    Object.keys(CNAME_TO_ISO3).forEach(function(k){if(!foundCC&&textUp2.indexOf(k)>=0) foundCC=CNAME_TO_ISO3[k];});
+    if(foundCC) mrz.countryCode=foundCC;
+  }
+  var countryName=printedNationality || isoToCountry(mrz.countryCode);
+  var needsReview=!sn||!gn||nameQualityScore(sn,mrz.countryCode)<45||nameQualityScore(gn,mrz.countryCode)<45||((printedSurnamePresent||printedGivenPresent)&&!printedAgree&&!(mrz.surname&&mrz.given));
+
+  return {
+    fullName:[gn,sn].filter(Boolean).join(' '),
+    surname:sn, given:gn,
+    title:title, gender:gender,
+    docNum:docNum, expiry:expiry,
+    countryCode:mrz.countryCode,
+    countryName:countryName,
+    _printedSurname:labeledNames.surname,
+    _printedGiven:labeledNames.given,
+    _mrzSurname:mrz.surname,
+    _mrzGiven:mrz.given,
+    _printedDocNum:printedDocNum,
+    _printedMrzAgree:printedAgree,
+    _needsReview:needsReview
+  };
+}
+
+
+function extractLP(text){
+  var docNum='',expiry='';
+  // MRZ is most reliable for LP number and expiry
+  var mrz=parseMRZ(text);
+  if(mrz.docNum) docNum=mrz.docNum;
+  if(mrz.expiry) expiry=mrz.expiry;
+  // Fallback: LP number from labeled field or inline text
+  if(!docNum){
+    // First: try to find AUNB-style number, allowing spaces (e.g. 'AUNBS 1340')
+    var raw=text.replace(/\n/g,' ');
+    var m=raw.match(/\b(A[A-Z]{1,3}[A-Z0-9S])\s{0,2}(\d{3,8})\b/)  // handles 'AUNBS 1340'
+            ||raw.match(/Laissez-Passer\s+No\.?\s*([A-Z0-9\s]{4,14})/i)
+            ||raw.match(/\b(A[A-Z]{1,3}[A-Z0-9S]\d{4,8})\b/);
+    if(m){
+      // Combine groups and strip spaces/dashes
+      var dn=(m[2]?m[1]+m[2]:m[1]).replace(/[\s\-]/g,'');
+      // Fix OCR misreads in numeric portion: S→5, O→0, I/l→1
+      var pfx=dn.match(/^([A-Z]{2,4})/);
+      if(pfx){
+        var letters=pfx[1];
+        var digits=dn.slice(letters.length)
+                     .replace(/S/g,'5').replace(/O/g,'0')
+                     .replace(/I/g,'1').replace(/l/g,'1');
+        dn=letters+digits;
+      }
+      if(dn.length>=7) docNum=dn;
+    }
+  }
+  if(!expiry) expiry=getExpiry(text);
+  return {docNum:docNum, expiry:expiry};
+}
+
+function extractMAECI(text){
+  var docNum='';
+
+  // Strategy 0: exact 6-digit/6-digit on same line or split across two lines
+  // Case A: same line "435861/198681" or "435861 / 198681"
+  var exact=text.match(/(?:^|\n)\s*(\d{5,7})\s*[\/\\]\s*(\d{5,7})/m);
+  if(exact) docNum=exact[1]+'/'+exact[2];
+  // Case B: split across lines - "435861/" on line N, "198681" on line N+1
+  if(!docNum){
+    var splitLines=text.split('\n');
+    for(var sl=0;sl<splitLines.length-1&&!docNum;sl++){
+      var mA=splitLines[sl].match(/(\d{5,7})\s*[\/\\]\s*$/);
+      if(mA){
+        var mB=splitLines[sl+1].match(/^\s*(\d{5,7})/);
+        if(!mB) mB=splitLines[sl+1].match(/(\d{5,7})/);
+        if(mB) docNum=mA[1]+'/'+mB[1];
+      }
+    }
+  }
+
+  // Strategy 0b: slash read as '7' → 12-13 digit run that is actually N7M
+  // e.g. "3713567172562" = "371356" + "7" + "172562"
+  if(!docNum){
+    var merged=text.match(/\b(\d{10,14})\b/);
+    if(merged){
+      var s=merged[1];
+      // Try splitting around a central '7' that acts as separator
+      // Format: NNNNNN 7 MMMMMM  (6+1+6=13 digits)
+      var m7=s.match(/^(\d{5,7})7(\d{5,7})$/);
+      if(m7) docNum=m7[1]+'/'+m7[2];
+      // Also try: any split into two 5-7 digit halves
+      if(!docNum && s.length>=10 && s.length<=14){
+        var half=Math.round(s.length/2);
+        for(var si=half-1;si<=half+1;si++){
+          var p1=s.slice(0,si), p2=s.slice(si);
+          if(p1.length>=5&&p1.length<=7&&p2.length>=5&&p2.length<=7){
+            docNum=p1+'/'+p2; break;
+          }
+        }
+      }
+    }
+  }
+
+  // Strategy 1: actual slash DDDDD/DDDDD anywhere in text
+  if(!docNum){
+    var direct=text.match(/(\d{4,7})\s*\/\s*(\d{4,7})/);
+    if(direct) docNum=direct[1]+'/'+direct[2];
+  }
+
+  // Strategy 2: browser OCR reads '/' as 'y','l' or backslash
+  if(!docNum){
+    var slashLike=text.match(/(\d{4,7})\s{0,2}[\/yl\\]/);
+    if(slashLike){
+      var n1=slashLike[1]; if(n1.length>6) n1=n1.slice(n1.length-6);
+      var allN=text.match(/\d{5,7}/g)||[];
+      var n2=null;
+      for(var ai=0;ai<allN.length;ai++){ if(allN[ai]!==n1){n2=allN[ai];break;} }
+      if(n1&&n2) docNum=n1+'/'+n2;
+    }
+  }
+
+  // Strategy 3: find slash on a line, search nearby lines for second number
+  if(!docNum){
+    var lines=text.split('\n');
+    for(var i=0;i<lines.length&&!docNum;i++){
+      var ms=lines[i].match(/(\d{4,8})\s*[\/yl\\]/);
+      if(ms){
+        var n1b=ms[1]; if(n1b.length>6) n1b=n1b.slice(n1b.length-6);
+        var n2b=null;
+        for(var d=1;d<=10&&!n2b;d++){
+          var js=[i-d,i+d];
+          for(var ji=0;ji<js.length&&!n2b;ji++){
+            var jj=js[ji];
+            if(jj>=0&&jj<lines.length){
+              var pm=lines[jj].match(/\d{5,7}/g)||[];
+              for(var pi=0;pi<pm.length;pi++){ if(pm[pi]!==n1b){n2b=pm[pi];break;} }
+            }
+          }
+        }
+        if(n1b&&n2b) docNum=n1b+'/'+n2b;
+      }
+    }
+  }
+
+  // Strategy 4: two 5-7 digit numbers on the same line separated by non-digits (OCR dropped slash)
+  if(!docNum){
+    var lines4=text.split('\n');
+    for(var li4=0;li4<lines4.length&&!docNum;li4++){
+      var pairs=lines4[li4].match(/(\d{5,7})\D{0,4}(\d{5,7})/);
+      if(pairs) docNum=pairs[1]+'/'+pairs[2];
+    }
+  }
+
+  // Strategy 5: take first two 5-7 digit numbers in text
+  if(!docNum){
+    var allRaw=text.match(/\d{5,7}/g)||[];
+    if(allRaw.length>=2) docNum=allRaw[0]+'/'+allRaw[1];
+  }
+
+  // Strategy 6: only one clean number found — try to find digit-noise tokens near it
+  // e.g. OCR reads "RE. 198681" where RE. = garbled "435861/"
+  // Look for tokens with 3+ consecutive digits mixed with noise chars
+  if(!docNum){
+    var allNums=text.match(/\d{5,7}/g)||[];
+    if(allNums.length===1){
+      var knownNum=allNums[0];
+      // Find tokens that look like they contain digits but are garbled
+      // Pattern: sequences with 3+ digits possibly mixed with letters/dots
+      var garbled=(text.match(/[A-Z0-9]{2,}[\.\,\/\s]*\d{3,}|\d{3,}[\.\,\/\s]*[A-Z0-9]{2,}/gi)||[]);
+      var candidates=[];
+      garbled.forEach(function(g){
+        var digitsOnly=g.replace(/[^0-9]/g,'');
+        if(digitsOnly.length>=4&&digitsOnly.length<=7&&digitsOnly!==knownNum){
+          candidates.push(digitsOnly);
+        }
+      });
+      if(candidates.length>0) docNum=candidates[0]+'/'+knownNum;
+    }
+  }
+
+  // Normalise MAECI docNum ordering: longer part first (e.g. 427653/76148 not 76148/427653)
+  if(docNum){
+    var dparts=docNum.split('/');
+    if(dparts.length===2&&dparts[0].length<dparts[1].length){
+      docNum=dparts[1]+'/'+dparts[0]; // swap: put longer number first
+    }
+  }
+
+  // Expiry: try "scade [noise] DD/MM/YYYY" — tolerant of OCR noise in "il"
+  // Also handles separators completely dropped: "scade tl 200082027" = 20/08/2027
+  var exp='';
+  var sm=text.match(/\(?\s*scade\s+[a-zA-Z]{1,3}\s+(\d{1,2})[\s\/\.\:](\d{1,2})[\s\/\.\:](\d{4})\s*\)?/i);
+  if(sm){
+    exp=eng(sm[1],String(parseInt(sm[2])).padStart(2,'0'),sm[3]);
+  }
+  // Fallback: separators completely missing — "scade tl 20082027" or "200082027)" etc.
+  if(!exp){
+    var smRaw=text.match(/scade\s+[a-zA-Z]{0,4}\s*(\d{7,9})\)?/i);
+    if(smRaw){
+      var raw9=smRaw[1].replace(/[^0-9]/g,'');
+      // Try DDMMYYYY (8 digits) or DMMYYYY (7 digits)
+      var dd9,mm9,yy9;
+      if(raw9.length===8){dd9=raw9.slice(0,2);mm9=raw9.slice(2,4);yy9=raw9.slice(4);}
+      else if(raw9.length===7){dd9='0'+raw9[0];mm9=raw9.slice(1,3);yy9=raw9.slice(3);}
+      if(yy9&&parseInt(yy9)>=2024&&parseInt(mm9)>=1&&parseInt(mm9)<=12&&parseInt(dd9)>=1&&parseInt(dd9)<=31){
+        exp=eng(dd9,mm9,yy9);
+      }
+    }
+  }
+  if(!exp){
+    var dm=text.match(/(\d{1,2})[\/\.\:](\d{1,2})[\/\.\:](\d{4})/g)||[];
+    for(var di=dm.length-1;di>=0;di--){
+      var dp=dm[di].split(/[\/\.\:]/);
+      var ddd=parseInt(dp[0]),mmm=parseInt(dp[1]),yyy=parseInt(dp[2]);
+      if(yyy>=2024&&mmm>=1&&mmm<=12&&ddd>=1&&ddd<=31){
+        exp=eng(dp[0],String(mmm).padStart(2,'0'),dp[2]); break;
+      }
+    }
+    if(!exp) exp=getExpiry(text);
+  }
+  return {docNum:docNum, expiry:exp};
+}
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  6. HELPER XML/DOCX  (esc · replaceSdt · appendAfterBold · removeP)       ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+// ── XML helpers ───────────────────────────────────────────────────────────────
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Replace text inside a specific <w:sdt> that contains a given marker in its <w:sdtPr>
+// Strategy: find the marker, then replace the <w:t> inside <w:sdtContent>
+function replaceSdtByTag(xml,tagVal,newText){
+  // Find the sdt containing this tag
+  var marker='<w:tag w:val="'+tagVal+'"';
+  var idx=xml.indexOf(marker);
+  if(idx===-1) return xml;
+  var sdtStart=xml.lastIndexOf('<w:sdt>',idx);
+  if(sdtStart===-1) return xml;
+  var sdtEnd=xml.indexOf('</w:sdt>',idx);
+  if(sdtEnd===-1) return xml;
+  var block=xml.slice(sdtStart,sdtEnd+8);
+  // Replace the content inside sdtContent → first <w:t> (handles self-closing <w:t/> too)
+  var newBlock=block.replace(/<w:t\/>/,'<w:t>'+esc(newText)+'</w:t>');
+  if(newBlock===block) newBlock=block.replace(/<w:t[^>]*>[^<]*<\/w:t>/,'<w:t>'+esc(newText)+'</w:t>');
+  if(newBlock===block) newBlock=block.replace(/<\/w:sdtContent>/,'<w:r><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t>'+esc(newText)+'</w:t></w:r></w:sdtContent>');
+  // Remove showingPlcHdr and PlaceholderText style (both cause grey placeholder color)
+  newBlock=newBlock.replace(/<w:showingPlcHdr\/>/g,'');
+  newBlock=newBlock.replace(/<w:rStyle w:val="PlaceholderText"\/>/g,'');
+  return xml.slice(0,sdtStart)+newBlock+xml.slice(sdtEnd+8);
+}
+
+// Replace <w:t>Mr</w:t> inside the sdt with given id
+function replaceSdtById(xml,sdtId,newText){
+  var marker='<w:id w:val="'+sdtId+'"';
+  var idx=xml.indexOf(marker);
+  if(idx===-1) return xml;
+  var sdtStart=xml.lastIndexOf('<w:sdt>',idx);
+  if(sdtStart===-1) return xml;
+  var sdtEnd=xml.indexOf('</w:sdt>',idx);
+  if(sdtEnd===-1) return xml;
+  var block=xml.slice(sdtStart,sdtEnd+8);
+  // Replace entire sdtContent with a clean run (no italic, standard Verdana 10pt)
+  var cleanRun='<w:sdtContent><w:r><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t>'+esc(newText)+'</w:t></w:r></w:sdtContent>';
+  var newBlock=block.replace(/<w:sdtContent>[\s\S]*?<\/w:sdtContent>/,cleanRun);
+  newBlock=newBlock.replace(/<w:showingPlcHdr\/>/g,'');
+  newBlock=newBlock.replace(/<w:rStyle w:val="PlaceholderText"\/>/g,'');
+  return xml.slice(0,sdtStart)+newBlock+xml.slice(sdtEnd+8);
+}
+
+// Add text run after a specific bold run (for appending to Passport/LP/IC lines)
+function appendAfterBold(xml,boldText,appendText){
+  // Find the run containing boldText
+  var marker='<w:t>'+boldText+'</w:t>';
+  var markerXS='<w:t xml:space="preserve">'+boldText+'</w:t>';
+  var idx=xml.indexOf(marker);
+  if(idx===-1) idx=xml.indexOf(markerXS);
+  if(idx===-1) return xml;
+  // Find end of that run
+  var runEnd=xml.indexOf('</w:r>',idx)+6;
+  // Insert a new run after it
+  var newRun='<w:r><w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t xml:space="preserve">'+esc(appendText)+'</w:t></w:r>';
+  return xml.slice(0,runEnd)+newRun+xml.slice(runEnd);
+}
+
+// Remove an entire <w:p> block that contains a given unique string
+function removeP(xml,marker){
+  var idx=xml.indexOf(marker);
+  if(idx===-1) return xml;
+  var ps=xml.lastIndexOf('<w:p ',idx); if(ps===-1) ps=xml.lastIndexOf('<w:p>',idx);
+  if(ps===-1) return xml;
+  var pe=xml.indexOf('</w:p>',idx);
+  if(pe===-1) return xml;
+  return xml.slice(0,ps)+xml.slice(pe+6);
+}
+
+function replaceNationalityCountry(xml, countryName){
+  // Replace Nationality SDT content with the country name.
+  // "national of " is now a static run in the template, so we only put the country name.
+  var tag='<w:tag w:val="Nationality"';
+  var idx=xml.indexOf(tag);
+  if(idx===-1) return xml;
+  var sdtStart=xml.lastIndexOf('<w:sdt>',idx);
+  if(sdtStart===-1) return xml;
+  var sdtEnd=xml.indexOf('</w:sdt>',idx)+8;
+  var block=xml.slice(sdtStart,sdtEnd);
+  // Remove placeholder flag
+  block=block.replace(/<w:showingPlcHdr\/>/g,'');
+  var rpr='<w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>';
+  // Check if template has "national of " INSIDE the SDT (old template style)
+  var hasNatOf=block.indexOf('national of ')>=0;
+  var textContent=hasNatOf
+    ?'national of '+esc(countryName)  // old template: put full string
+    :esc(countryName);                // new template: country name only
+  var newContent='<w:sdtContent><w:r>'+rpr+'<w:t xml:space="preserve">'+textContent+'</w:t></w:r></w:sdtContent>';
+  block=block.replace(/<w:sdtContent>[\s\S]*?<\/w:sdtContent>/,newContent);
+  return xml.slice(0,sdtStart)+block+xml.slice(sdtEnd);
+}
+
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  7. PIPELINE OCR  (startOCR)                                              ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+// ── OCR pipeline ──────────────────────────────────────────────────────────────
+async function startOCR(id,file){
+  extracted[id]=null;
+  document.getElementById('card-'+id).className='card processing';
+  var fn=document.getElementById('fname-'+id);
+  fn.textContent=shorten(file.name,28); fn.style.display='block';
+  clearRbox(id); setProg(id,5,'var(--ac)'); recheck();
+
+  try{
+    // Render to canvas
+    var canvas=await toCanvas(file);
+    setProg(id,20,'var(--ac)');
+
+    // Detect rotation — skip for MAECI (card-specific rotation later)
+    // For passport PDFs that are already portrait, bestAngle can wrongly rotate to landscape
+    var angle;
+    if(id==='maeci'){
+      angle=0;
+    } else if(id==='pp' && canvas.height>canvas.width){
+      // Already portrait — trust it, don't rotate (bestAngle might flip to landscape)
+      angle=0;
+    } else {
+      angle=await bestAngle(canvas);
+    }
+    var rotated=rotate(canvas,angle);
+    setProg(id,35,'var(--ac)');
+
+    // Per-document canvas preprocessing before OCR
+    var ocrCanvas=rotated;
+    if(id==='maeci'){
+      // MAECI: the card can appear anywhere on an A4 scan (top-left, bottom-right, etc.)
+      // Strategy: auto-detect the card bounding box by finding the non-white region.
+      // We scan at low resolution for speed, then crop the high-res canvas to that area.
+      var fw=rotated.width, fh=rotated.height;
+
+      // Step 1: build a downsampled version (max 400px wide) for fast pixel scanning
+      var thumbScale=Math.min(1, 400/fw);
+      var tw=Math.round(fw*thumbScale), th=Math.round(fh*thumbScale);
+      var thumb=document.createElement('canvas'); thumb.width=tw; thumb.height=th;
+      thumb.getContext('2d').drawImage(rotated,0,0,tw,th);
+      var tData=thumb.getContext('2d').getImageData(0,0,tw,th).data;
+
+      // Step 2: find bounding box of non-white pixels (luma < 230)
+      var WHITE_THRESH=230;
+      var minX=tw,maxX=0,minY=th,maxY=0;
+      for(var py=0;py<th;py++){
+        for(var px2=0;px2<tw;px2++){
+          var base=(py*tw+px2)*4;
+          var lum2=tData[base]*0.299+tData[base+1]*0.587+tData[base+2]*0.114;
+          if(lum2<WHITE_THRESH){
+            if(px2<minX) minX=px2; if(px2>maxX) maxX=px2;
+            if(py<minY) minY=py;   if(py>maxY) maxY=py;
+          }
+        }
+      }
+
+      // Step 3: if we found a meaningful non-white region, crop to it (with 3% padding)
+      var cardCanvas;
+      if(maxX>minX+20 && maxY>minY+20){
+        var pad=0.03;
+        var cx1=Math.max(0,Math.round((minX/tw-pad)*fw));
+        var cy1=Math.max(0,Math.round((minY/th-pad)*fh));
+        var cx2=Math.min(fw,Math.round((maxX/tw+pad)*fw));
+        var cy2=Math.min(fh,Math.round((maxY/th+pad)*fh));
+        cardCanvas=document.createElement('canvas');
+        cardCanvas.width=cx2-cx1; cardCanvas.height=cy2-cy1;
+        cardCanvas.getContext('2d').drawImage(rotated,cx1,cy1,cx2-cx1,cy2-cy1,0,0,cx2-cx1,cy2-cy1);
+      } else {
+        cardCanvas=rotated; // fallback: use full image
+      }
+
+      // Step 4: re-detect rotation on the cropped card (not the full A4 sheet)
+      // bestAngle on a tiny card works much better than on a mostly-white A4 page
+      var maециKW=['FUNZIONARIO','SCADE','IFAD','MAECI','NAZIONALITA','QUALIFICA',
+                   'ROMA','COLOMBIA','FUNZ','INT','ORG','NATO','BOGOTA'];
+      var bestCard={angle:0,score:-1};
+      for(var ri=0;ri<4;ri++){
+        var ra=ri*90;
+        try{
+          var rb2=await toBlob(rotate(cardCanvas,ra),0.5); // higher res since card is small
+          var rr=await Tesseract.recognize(rb2,'eng',{logger:function(){}});
+          var rt=rr.data.text.toUpperCase();
+          var rs=maециKW.reduce(function(n,k){return n+(rt.indexOf(k)>=0?2:0);},0);
+          // Also score generic Italian/date patterns
+          if(/\d{2}\/\d{2}\/\d{4}/.test(rt)) rs+=3;
+          if(/\d{5,7}\/\d{5,7}/.test(rt)) rs+=5; // doc number with slash = jackpot
+          if(rs>bestCard.score) bestCard={angle:ra,score:rs};
+        }catch(e){}
+      }
+      // Apply correct rotation to the cropped card
+      var cardRotated=rotate(cardCanvas, bestCard.angle);
+
+      // Step 5: binarize with adaptive threshold
+      // Top 22% (number zone) uses threshold 160 for cleaner digit reading
+      // Rest uses 120 for the coloured card background
+      var mw=cardRotated.width, mh=cardRotated.height;
+      var mc=document.createElement('canvas'); mc.width=mw; mc.height=mh;
+      var mctx=mc.getContext('2d');
+      mctx.drawImage(cardRotated,0,0);
+      var id2=mctx.getImageData(0,0,mw,mh),d=id2.data;
+      var numZoneH=Math.round(mh*0.22);
+      for(var px=0;px<d.length;px+=4){
+        var row=Math.floor((px/4)/mw);
+        var thresh=row<numZoneH?160:120;
+        var lum=d[px]*0.299+d[px+1]*0.587+d[px+2]*0.114;
+        d[px]=d[px+1]=d[px+2]=(lum>thresh?255:0);
+      }
+      mctx.putImageData(id2,0,0); ocrCanvas=mc;
+    } else if(id==='pp'){
+      var pw=rotated.width, ph=rotated.height;
+      if(ph > pw){
+        // Portrait: two pages stacked vertically — crop top 40% (observations/visas), keep bottom
+        var cropTop=Math.round(ph*0.40);
+        var pc=document.createElement('canvas');
+        pc.width=pw; pc.height=ph-cropTop;
+        pc.getContext('2d').drawImage(rotated,0,cropTop,pw,ph-cropTop,0,0,pw,ph-cropTop);
+        ocrCanvas=pc;
+      }
+      // Landscape: use full image — the MRZ passes below will find the MRZ regardless of position
+    }
+
+    // Apply preprocessing before main OCR
+    if(id!=='maeci'){ // MAECI already binarized
+      var cw3=ocrCanvas.width, ch3=ocrCanvas.height;
+      var cc=document.createElement('canvas'); cc.width=cw3; cc.height=ch3;
+      var cctx=cc.getContext('2d');
+      // Sharpen + contrast boost: helps with low-quality scans
+      cctx.filter='contrast(1.5) brightness(1.05) saturate(0)';
+      cctx.drawImage(ocrCanvas,0,0);
+      cctx.filter='none';
+      ocrCanvas=cc;
+    }
+
+    // Main OCR - use 'eng' only for performance, psm=1 (auto with OSD)
+    var blob=await toBlob(ocrCanvas);
+    var ocr=await Tesseract.recognize(blob,'eng',{
+      logger:function(m){
+        if(m.status==='recognizing text') setProg(id,35+Math.round(m.progress*50),'var(--ac)');
+      },
+      tessedit_pageseg_mode:'1'
+    });
+    var text=ocr.data.text;
+
+    // ── Dedicated MRZ OCR ─────────────────────────────────────────────────────
+    // Multiple passes with different settings to maximize MRZ accuracy
+    if(id==='pp'||id==='lp'){
+      try{
+        var mrzBestText='';
+
+        // Helper: run OCR on a canvas with given filter and optional whitelist
+        async function mrzOcrPass(srcCanvas, filter, useWhitelist){
+          var mc=document.createElement('canvas');
+          mc.width=srcCanvas.width; mc.height=srcCanvas.height;
+          var mctx=mc.getContext('2d');
+          mctx.filter=filter;
+          mctx.drawImage(srcCanvas,0,0);
+          mctx.filter='none';
+          var config={logger:function(){}};
+          if(useWhitelist){
+            // Whitelist: only characters that appear in MRZ (OCR-B font)
+            config.tessedit_char_whitelist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<';
+            config.tessedit_pageseg_mode='6'; // uniform block of text
+          }
+          var r=await Tesseract.recognize(await toBlob(mc),'eng',config);
+          return r.data.text;
+        }
+
+        // Score a text block by how many valid MRZ candidates it contains
+        function mrzScore(t){
+          var score=0;
+          t.split('\n').forEach(function(l){
+            var cl=l.replace(/[^A-Za-z0-9<>]/g,'').toUpperCase();
+            if(cl.length>=25){
+              var ok=(cl.match(/[A-Z0-9<]/g)||[]).length;
+              if(ok/cl.length>0.75) score+=cl.length;
+            }
+          });
+          return score;
+        }
+
+        if(id==='pp'){
+          // Run all MRZ passes on the full ocrCanvas — the MRZ can be anywhere
+          // (bottom crop was missing some passports where MRZ is higher up)
+          // Pass 1: high contrast + grayscale
+          var t1=await mrzOcrPass(ocrCanvas,'contrast(3.0) grayscale(1)',false);
+          // Pass 2: very high contrast + whitelist
+          var t2=await mrzOcrPass(ocrCanvas,'contrast(5.0) brightness(0.95) grayscale(1)',true);
+          // Pass 3: extreme contrast + whitelist
+          var t3=await mrzOcrPass(ocrCanvas,'contrast(8.0) brightness(0.8) grayscale(1)',true);
+
+          // Pick the pass with best MRZ score
+          var scores=[mrzScore(t1),mrzScore(t2),mrzScore(t3)];
+          var best=scores.indexOf(Math.max.apply(null,scores));
+          mrzBestText=[t1,t2,t3][best];
+
+          // Prepend ALL passes so parseMRZ has max data to work with
+          text=t1+'\n'+t2+'\n'+t3+'\n'+text;
+          // Store for debug
+          if(typeof window!=='undefined') window._mrzDebug={t1:t1,t2:t2,t3:t3};
+
+        } else {
+          // LP: use full image (MRZ position varies)
+          var t1=await mrzOcrPass(ocrCanvas,'contrast(3.0) grayscale(1)',false);
+          var t2=await mrzOcrPass(ocrCanvas,'contrast(5.0) grayscale(1)',true);
+          text=t1+'\n'+t2+'\n'+text;
+        }
+
+        setProg(id,90,'var(--ac)');
+      }catch(e){ console.warn('MRZ OCR failed:',e); }
+    }
+
+    var result;
+    try {
+      result = id==='pp' ? extractPassport(text)
+               :id==='lp' ? extractLP(text)
+               :             extractMAECI(text);
+    } catch(extractErr) {
+      console.error('extractPassport error:', extractErr);
+      if(typeof window!=='undefined') window._extractError = extractErr.toString()+' '+extractErr.stack;
+    }
+    if(!result) result={docNum:'',expiry:'',fullName:'',title:'',gender:''};
+    extracted[id]=result;
+    setProg(id,100,'var(--gr)');
+    document.getElementById('card-'+id).className='card done';
+    showRbox(id,result);
+    if(id==='pp'||id==='maeci'){
+      var dbgId='dbg-'+id;
+      var dbg=document.getElementById(dbgId);
+      if(!dbg){dbg=document.createElement('div');dbg.id=dbgId;
+        dbg.style.cssText='margin-top:8px;font-size:9px;font-family:monospace;background:#111;color:#0f0;padding:8px;border-radius:6px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto';
+        document.getElementById('card-'+id).appendChild(dbg);}
+      if(id==='maeci') dbg.textContent='=== OCR ===\n'+text.slice(0,1000);
+      if(id==='pp'){var di='sn='+JSON.stringify(result._mrzSurname)+'\ngn='+JSON.stringify(result._mrzGiven)+'\nlsn='+JSON.stringify(result._printedSurname)+'\nlgn='+JSON.stringify(result._printedGiven)+'\nfull='+JSON.stringify(result.fullName);dbg.textContent=di;}
+    }
+
+
+  }catch(err){
+    console.error(id,err);
+    extracted[id]={_err:true,docNum:'',expiry:''};
+    setProg(id,100,'var(--rd)');
+    var rb=document.getElementById('res-'+id);
+    rb.className='rbox err'; rb.innerHTML='<span>Errore OCR: '+err.message+'</span>'; rb.style.display='flex';
+  }
+  recheck();
+}
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  8. HELPER UI  (shorten · setProg · clearRbox · showRbox · recheck · setGS)║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function shorten(s,n){ return s.length>n?s.slice(0,n-1)+'…':s; }
+function setProg(id,p,col){ var f=document.getElementById('prog-'+id); f.style.width=p+'%'; f.style.background=col; }
+function clearRbox(id){ var r=document.getElementById('res-'+id); r.className='rbox'; r.innerHTML=''; r.style.display='none'; }
+
+function showRbox(id,d){
+  var r=document.getElementById('res-'+id);
+  r.className='rbox ok'; r.innerHTML='';
+  var fields=id==='pp'
+    ?[
+       {key:'title',     lbl:'Titolo',       val:d.title||''},
+       {key:'fullName',  lbl:'Nome completo', val:d.fullName||''},
+       {key:'countryName',lbl:'Nazionalità',  val:d.countryName||d.countryCode||''},
+       {key:'docNum',    lbl:'N° Documento',  val:d.docNum||''},
+       {key:'expiry',    lbl:'Scadenza',      val:d.expiry||''}
+     ]
+    :[
+       {key:'docNum',    lbl:'N° Documento',  val:d.docNum||''},
+       {key:'expiry',    lbl:'Scadenza',      val:d.expiry||''}
+     ];
+  fields.forEach(function(f){
+    var row=document.createElement('div');
+    row.className='frow';
+    row.innerHTML='<div class="lbl">'+f.lbl+'</div>';
+    var inp=document.createElement('input');
+    inp.type='text';
+    inp.className='val-input';
+    inp.value=f.val;
+    inp.placeholder='—';
+    inp.dataset.key=f.key;
+    inp.dataset.docid=id;
+    inp.addEventListener('input',function(){
+      var docid=this.dataset.docid, k=this.dataset.key, v=this.value;
+      if(extracted[docid]) {
+        extracted[docid][k]=v;
+        // Keep fullName in sync: if title/surname/given changed, rebuild fullName
+        if(k==='title') extracted[docid].title=v;
+        // If fullName edited directly, also update surname+given for template
+        if(k==='fullName'){
+          var parts=v.trim().split(/\s+/);
+          if(parts.length>=2){
+            extracted[docid].given=parts.slice(0,-1).join(' ');
+            extracted[docid].surname=parts[parts.length-1];
+          }
+        }
+      }
+    });
+    row.appendChild(inp);
+    r.appendChild(row);
+  });
+  r.style.display='flex';
+}
+
+function recheck(){
+  updatePicker();
+  var hasTmpl=!!templateFile;
+  var done=['pp','lp','maeci'].filter(function(id){return extracted[id]!==null;});
+  var ok=hasTmpl&&done.length>0;
+  document.getElementById('genBtn').disabled=!ok;
+  var note=document.getElementById('genNote');
+  if(!hasTmpl) note.textContent='Carica prima il template Word (.docx)';
+  else if(!done.length) note.textContent='Attendi il completamento OCR…';
+  else note.textContent='Pronti: '+done.map(function(id){return {pp:'Passaporto',lp:'Laissez-Passer',maeci:'MAECI'}[id];}).join(', ');
+}
+
+function setGS(type,msg){
+  var el=document.getElementById('gsbar');
+  el.className='gsbar '+type;
+  document.getElementById('gsmsg').textContent=msg;
+  document.getElementById('gspin').style.display=type==='load'?'block':'none';
+}
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  9. GENERAZIONE DOCUMENTO  (genBtn.onclick · dlBtn.onclick)               ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+// ── Generate document ─────────────────────────────────────────────────────────
+document.getElementById('genBtn').onclick=async function(){
+  this.disabled=true; this.textContent='Generazione…';
+  setGS('load','Compilazione documento Word in corso…');
+
+  try{
+    var pp=extracted.pp, lp=extracted.lp, maeci=extracted.maeci;
+    var ab=await templateFile.arrayBuffer();
+    var zip=await JSZip.loadAsync(ab);
+    var xml=await zip.file('word/document.xml').async('string');
+
+    // ── Document count: singular/plural "document(s)" ─────────────────
+    var docCount=0;
+    if(pp&&!pp._err&&pp.docNum) docCount++;
+    if(lp&&!lp._err&&lp.docNum) docCount++;
+    if(maeci&&!maeci._err&&maeci.docNum) docCount++;
+    var docWord=docCount===1?'document':'documents';
+    // Replace 'following documents:' with singular/plural
+    xml=xml.replace(/following documents:/g,'following '+docWord+':');
+
+    // ── Title (Mr/Ms) ──────────────────────────────────────────────────────
+    // There are 3 Mr/Ms dropdowns in the doc (IDs: 571701404, 276's sdt, 519's sdt)
+    // All 3 should get the same title
+    var title=pp&&!pp._err?pp.title:'Mr';
+    // Replace all 3 occurrences by finding <w:t>Mr</w:t> inside combo-box sdts
+    // We target specifically the sdt IDs found in analysis
+    xml=replaceSdtById(xml,'571701404',title);  // Para 1
+    xml=replaceSdtById(xml,'-1748262053',title); // Para 3: "Ms Aakre is a national..."
+    // Para 2 Mr (around line 275-286) - find by nearby "Surname" sdt
+    // Para 3 Mr (around line 508-519)
+    // Simpler: replace ALL <w:t>Mr</w:t> that are inside a comboBox sdt
+    xml=xml.replace(/(<w:comboBox>[\s\S]{0,400}?<w:t>)Mr(<\/w:t>[\s\S]{0,200}?<\/w:sdt>)/g,
+      function(match,pre,post){ return pre+esc(title)+post; });
+
+    // ── Full name (para 1) ────────────────────────────────────────────────
+    if(pp&&!pp._err){
+      xml=replaceSdtByTag(xml,'Name and Surname',pp.fullName);
+    }
+
+    // ── Surname only (paras 2 and 3) ─────────────────────────────────────
+    if(pp&&!pp._err){
+      xml=replaceSdtByTag(xml,'Surname',pp.surname);       // para 2
+      // Para 3: SDT id 1659265393 has italic rPr - replace entire sdtContent with normal style
+      var sn3Idx=xml.indexOf('<w:id w:val="1659265393"');
+      if(sn3Idx>=0){
+        var sn3Start=xml.lastIndexOf('<w:sdt>',sn3Idx);
+        var sn3End=xml.indexOf('</w:sdt>',sn3Idx)+8;
+        var sn3Block=xml.slice(sn3Start,sn3End);
+        var rprV='<w:rPr><w:rFonts w:ascii="Verdana" w:hAnsi="Verdana"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>';
+        var sn3New='<w:sdtContent><w:r>'+rprV+'<w:t xml:space="preserve"> '+esc(pp.surname)+'</w:t></w:r></w:sdtContent>';
+        sn3Block=sn3Block.replace(/<w:sdtContent>[\s\S]*?<\/w:sdtContent>/,sn3New);
+        xml=xml.slice(0,sn3Start)+sn3Block+xml.slice(sn3End);
+      }
+      // Also fix any hardcoded "Al-Athwari" text run
+      xml=xml.replace(/<w:t>Al-Athwari<\/w:t>/g,'<w:t>'+esc(pp.surname)+'</w:t>');
+    }
+
+    // ── Nationality (paragraph 3: "is a national of [country]") ─────────────
+    // Mission panel values
+    var mpRefnum=document.getElementById('mp-refnum').value.trim()||'XX';
+    var mpRole=document.getElementById('mp-role').value;
+    var mpFrom=document.getElementById('mp-from').value;
+    var mpTo=document.getElementById('mp-to').value;
+    var mpPurpose=document.getElementById('mp-purpose').value;
+    var mpTravelPurpose=document.getElementById('mp-travelpurpose').value.trim();
+    var mpSignDate=document.getElementById('mp-signdate').value;
+
+    var natCountry=pickerVals.nat||(pp&&!pp._err?pp.countryName:'');
+    lastDestCountry=natCountry; // store nationality as fallback
+    if(natCountry){
+      xml=replaceNationalityCountry(xml,natCountry);
+
+    // ── Mission panel fields ──────────────────────────────────────────────────
+    function fmtDate(d){
+      if(!d) return '';
+      var p=d.split('-'); if(p.length!==3) return d;
+      var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+      var day=String(parseInt(p[2])).padStart(2,'0');
+      return day+' '+months[parseInt(p[1])-1]+' '+p[0];
+    }
+
+    // Smart date range: if same month+year -> "From 17 to 29 May 2026"
+    // else -> "to DD Month YYYY" / "DD Month YYYY" (two separate SDTs)
+    function fmtDateRange(fromStr, toStr){
+      if(!fromStr&&!toStr) return {from:'',to:''};
+      if(!fromStr) return {from:'',to:'to '+fmtDate(toStr)};
+      if(!toStr)   return {from:fmtDate(fromStr),to:''};
+      var pF=fromStr.split('-'), pT=toStr.split('-');
+      // Same month and year?
+      if(pF[0]===pT[0]&&pF[1]===pT[1]){
+        var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+        var dF=String(parseInt(pF[2])).padStart(2,'0');
+        var dT=String(parseInt(pT[2])).padStart(2,'0');
+        var mon=months[parseInt(pF[1])-1];
+        // Put the full range in the "Purpose of the mission" SDT (which holds "to DATE")
+        // and leave "Exact dates of travel" (from DATE) empty
+        return {combined:dF+' to '+dT+' '+mon+' '+pF[0], singleSDT:true}; // template already has 'from'
+      }
+      return {from:fmtDate(fromStr), to:'to '+fmtDate(toStr)};
+    }
+
+    // Numeretto XX (top-right reference number)
+    xml=xml.replace(/<w:t>XX<\/w:t>/g,'<w:t>'+esc(mpRefnum)+'<\/w:t>');
+
+    // Role: SDT id=164908260 (second "Choose an item." = role after title)
+    if(mpRole) xml=replaceSdtById(xml,'164908260',mpRole);
+
+    // Dates: smart range handling
+    var dateRange=fmtDateRange(mpFrom,mpTo);
+    if(dateRange.singleSDT){
+      // Same month: "From 17 to 29 May 2026" — put combined in Exact dates (FROM position)
+      xml=replaceSdtByTag(xml,'Exact dates of travel',dateRange.combined);
+      // Hide the TO date SDT and its preceding " to " text
+      xml=replaceSdtByTag(xml,'Purpose of the mission',' ');
+      xml=xml.replace(/<w:t xml:space="preserve"> to <\/w:t>/g,'<w:t xml:space="preserve"> <\/w:t>');
+    } else {
+      // Normal: FROM date in Exact dates SDT, TO date in Purpose of mission SDT
+      if(mpFrom) xml=replaceSdtByTag(xml,'Exact dates of travel',fmtDate(mpFrom));
+      if(mpTo)   xml=replaceSdtByTag(xml,'Purpose of the mission',fmtDate(mpTo));
+    }
+
+    // Purpose of travel: SDT tag="Purpose of travel"
+    if(mpTravelPurpose) xml=replaceSdtByTag(xml,'Purpose of travel',mpTravelPurpose);
+
+    // Mission type / scope: SDT tag="Mission type"
+    if(mpPurpose) xml=replaceSdtByTag(xml,'Mission type',mpPurpose);
+
+    // Signing date: SDT id=-733537753
+    if(mpSignDate) xml=replaceSdtById(xml,'-733537753',fmtDate(mpSignDate));
+    }
+
+    // ── Destination country (paragraphs 2 and last) ──────────────────────
+    // Both fields always get the same country (the mission destination)
+    var destCountry=pickerVals.dest;
+    if(destCountry){
+      xml=replaceSdtByTag(xml,'Country Official name',destCountry); // para 2
+      xml=replaceSdtById(xml,'1175000593',destCountry);              // last para
+    }
+
+    // ── UK/IRL paragraph ("Furthermore, nationals of the United Kingdom...") ──
+    // Keep if: passport is GBR or IRL, OR the Nationality SDT contains
+    // "United Kingdom", "Northern Ireland", or "Ireland"
+    var natForUK=pickerVals.nat||(pp&&!pp._err?pp.countryName:'');
+    var ppCountryIsUK=(pp&&!pp._err&&(pp.countryCode==='GBR'||pp.countryCode==='IRL'))||
+      (natForUK&&(natForUK.indexOf('United Kingdom')>=0||natForUK==='Ireland'));
+    // Also check the current value of the Nationality SDT in the XML
+    var natSdtMatch=xml.match(/<w:tag w:val="Nationality"[\s\S]{0,300}?<w:t[^>]*>([^<]+)<\/w:t>/);
+    var natSdtValue=natSdtMatch?natSdtMatch[1]:'';
+    var selectorIsUK=natSdtValue.indexOf('United Kingdom')>=0||
+                     natSdtValue.indexOf('Northern Ireland')>=0||
+                     natSdtValue==='Ireland';
+    var isUK=ppCountryIsUK||selectorIsUK;
+    if(!isUK){
+      xml=removeP(xml,'Furthermore');
+    }
+
+    // ── National Passport ─────────────────────────────────────────────────
+    if(pp&&pp.docNum&&!pp._err){
+      // Append "No. XXXXX, valid until DD Month YYYY" after "National Passport "
+      xml=appendAfterBold(xml,'National Passport ','No. '+pp.docNum+', valid until '+pp.expiry);
+    } else {
+      xml=removeP(xml,'National Passport');
+    }
+
+    // ── Laissez-Passer ────────────────────────────────────────────────────
+    if(lp&&lp.docNum&&!lp._err){
+      // Try both with and without leading space
+      xml=appendAfterBold(xml,'United Nations Laissez-Passer',' No. '+lp.docNum+', valid until '+lp.expiry);
+      if(xml.indexOf(' No. '+lp.docNum)<0)
+        xml=appendAfterBold(xml,' Laissez-Passer',' No. '+lp.docNum+', valid until '+lp.expiry);
+    } else {
+      xml=removeP(xml,'Laissez-Passer');
+    }
+
+    // ── Identity Card / MAECI ─────────────────────────────────────────────
+    if(maeci&&maeci.docNum&&!maeci._err){
+      var icBase=' issued by the Italian Ministry of Foreign Affairs and International Cooperation and valid until';
+      var icRunRe=/<w:t[^>]*> issued by the Italian Ministry of Foreign Affairs and International Cooperation and valid until[^<]*<\/w:t>/;
+      if(xml.indexOf('03 February 2028')>=0){
+        // Template A: date placeholder in separate run
+        xml=appendAfterBold(xml,'Identity Card',' No. '+esc(maeci.docNum)+',');
+        xml=xml.replace(/<w:t>03 February 2028<\/w:t>/g,'<w:t>'+esc(maeci.expiry)+'<\/w:t>');
+      } else if(icRunRe.test(xml)){
+        // Current template: " issued by...valid until." run — replace with full text
+        xml=xml.replace(icRunRe,'<w:t xml:space="preserve"> No. '+esc(maeci.docNum)+','+icBase+' '+esc(maeci.expiry)+'.<\/w:t>');
+      } else {
+        // Fallback: append after "Identity Card" bold run
+        xml=appendAfterBold(xml,'Identity Card',' No. '+esc(maeci.docNum)+','+icBase+' '+esc(maeci.expiry)+'.');
+      }
+    } else {
+      xml=removeP(xml,'Identity Card');
+      xml=removeP(xml,' issued by the Italian Ministry of Foreign Affairs and International Cooperation');
+    }
+
+    // Final cleanup: remove PlaceholderText styling
+    xml=xml.replace(/<w:rStyle w:val="PlaceholderText"\/>/g,'');
+    xml=xml.replace(/<w:showingPlcHdr\/>/g,'');
+    // Remove permission markers (render as | lines in PDF)
+    xml=xml.replace(/<w:permStart[^/]*\/>/g,'');
+    xml=xml.replace(/<w:permEnd[^/]*\/>/g,'');
+    // Fix space-before-period: <w:t ...> .</w:t> or trailing space + separate period run
+    xml=xml.replace(/<w:t([^>]*)> \.?<\/w:t>\s*(<w:r[^>]*>\s*<w:rPr[^<]*<\/w:rPr>\s*<w:t>\.?<\/w:t>)/g,
+      function(m,attr,nextRun){ return '<w:t'+attr+'><\/w:t>'+nextRun; });
+    // Simple: remove space immediately before a standalone period run
+    xml=xml.replace(/(<w:t[^>]*>[^<]*) (<\/w:t>)(\s*<\/w:r>\s*<w:r[^>]*>\s*(?:<w:rPr[^<]*<\/w:rPr>\s*)?<w:t>\.)/g,
+      '$1$2$3');
+
+    // Capture destination country BEFORE unwrapping (tags still present)
+    var destTagIdx=xml.indexOf('w:val="Country Official name"');
+    if(destTagIdx>=0){
+      var destSdtEnd=xml.indexOf('</w:sdt>',destTagIdx);
+      var destBlock=xml.slice(destTagIdx,destSdtEnd);
+      var destTMatch=destBlock.match(/<w:t[^>]*>([^<]{4,})<\/w:t>/);
+      if(destTMatch&&destTMatch[1].indexOf('Click')<0&&destTMatch[1].indexOf('Choose')<0){
+        lastDestCountry=destTMatch[1];
+      }
+    }
+
+    // Unwrap all SDT containers — removes vertical bracket lines in PDF
+    // Use regex to strip <w:sdt>...<w:sdtContent>CONTENT</w:sdtContent>...</w:sdt>
+    // Run multiple passes until no SDTs remain
+    for(var sdtPass=0; sdtPass<20; sdtPass++){
+      var before=xml.indexOf('<w:sdt>');
+      if(before<0) break;
+      // Replace innermost SDTs first (those whose sdtContent has no nested <w:sdt>)
+      xml=xml.replace(/<w:sdt>(?:(?!<w:sdt>)[\s\S])*?<w:sdtContent>([\s\S]*?)<\/w:sdtContent>(?:(?!<w:sdt>)[\s\S])*?<\/w:sdt>/g,
+        function(match, inner){ return inner; });
+      // Remove any SDTs with no sdtContent
+      xml=xml.replace(/<w:sdt>(?:(?!<w:sdt>)[\s\S])*?<\/w:sdt>/g, '');
+      if(xml.indexOf('<w:sdt>')<0) break;
+    }
+
+    // Clean up spaces before periods and trailing spaces in text runs
+    // Pattern: <w:t...>text </w:t> followed by <w:t>.</w:t> -> remove trailing space
+    xml=xml.replace(/(<w:t[^>]*>[^<]*?) (<\/w:t>\s*<\/w:r>\s*(?:<w:bookmarkStart[^\/]*\/>|<w:bookmarkEnd[^\/]*\/>)?\s*<w:r[^>]*>\s*(?:<w:rPr[^<]*<\/w:rPr>\s*)?<w:t>\.<\/w:t>)/g,'$1$2');
+    // Simpler: any text run ending in space followed by a period-only run
+    var fixPass=0;
+    while(fixPass++<5){
+      var before=xml;
+      xml=xml.replace(/(<w:t(?:[^>]*)>)([^<]*) (<\/w:t><\/w:r>[^<]*<w:r[^>]*>[^<]*<w:t>\.<\/w:t>)/g,'$1$2$3');
+      if(xml===before) break;
+    }
+    // Save
+    zip.file('word/document.xml',xml);
+    lastBlob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+
+    // Preview
+    var grid=document.getElementById('pgrid');
+    grid.innerHTML='';
+    var rows=[];
+    if(pp&&!pp._err) rows.push(['Titolo',pp.title],['Nome completo',pp.fullName],['Nazionalità',pp.countryName||pp.countryCode||'—'],['Passaporto N°',pp.docNum],['Passaporto scadenza',pp.expiry]);
+    if(lp&&!lp._err) rows.push(['Laissez-Passer N°',lp.docNum],['LP scadenza',lp.expiry]);
+    if(maeci&&!maeci._err) rows.push(['MAECI N°',maeci.docNum],['MAECI scadenza',maeci.expiry]);
+    var removed=['pp','lp','maeci'].filter(function(id){return !extracted[id]||extracted[id]._err;});
+    if(removed.length) rows.push(['Sezioni eliminate',removed.map(function(id){return {pp:'Passaporto',lp:'Laissez-Passer',maeci:'Carta MAECI'}[id];}).join(', ')]);
+    rows.forEach(function(r){
+      grid.innerHTML+='<div class="pf"><div class="pl">'+r[0]+'</div><div class="pv'+(r[1]?'':' empty')+'">'+(r[1]||'Non trovato')+'</div></div>';
+    });
+    document.getElementById('preview').style.display='block';
+    setGS('ok','Documento pronto — verifica e scarica');
+
+  }catch(e){
+    setGS('err','Errore: '+e.message);
+    console.error(e);
+  }
+  this.disabled=false; this.textContent='Genera documento Word compilato';
+};
+
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║  10. COUNTRY PICKER  (smart fuzzy search for nationality & destination)    ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
+var COUNTRIES=["Antigua and Barbuda", "Barbados", "Belize", "Bosnia and Herzegovina", "Brunei Darussalam", "Burkina Faso", "Canada", "Georgia", "Grenada", "Hungary", "Iceland", "Independent State of Papua New Guinea", "Ireland", "Jamaica", "Japan", "Kingdom of the Netherlands", "Malaysia", "Mongolia", "Montenegro", "Nepal", "New Zealand", "Niue", "Palestine", "Republic of North Macedonia", "Republic of the Union of Myanmar", "Romania", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Solomon Islands", "State of Libya", "Turkmenistan", "Tuvalu", "Ukraine", "the Arab Republic of Egypt", "the Argentine Republic", "the Bolivarian Republic of Venezuela", "the Central African Republic", "the Co-operative Republic of Guyana", "the Commonwealth of Australia", "the Commonwealth of Dominica", "the Commonwealth of The Bahamas", "the Cook Islands", "the Czech Republic", "the Democratic People's Republic of Korea", "the Democratic Republic of Sao Tome and Principe", "the Democratic Republic of Timor-Leste", "the Democratic Republic of the Congo", "the Democratic Socialist Republic of Sri Lanka", "the Dominican Republic", "the Eastern Republic of Uruguay", "the Federal Democratic Republic of Ethiopia", "the Federal Republic of Germany", "the Federal Republic of Nigeria", "the Federal Republic of Somalia", "the Federated States of Micronesia", "the Federative Republic of Brazil", "the French Republic", "the Gabonese Republic", "the Grand Duchy of Luxembourg", "the Hashemite Kingdom of Jordan", "the Hellenic Republic", "the Holy See", "the Independent State of Samoa", "the Islamic Republic of Afghanistan", "the Islamic Republic of Iran", "the Islamic Republic of Mauritania", "the Islamic Republic of Pakistan", "the Italian Republic", "the Kingdom of Bahrain", "the Kingdom of Belgium", "the Kingdom of Bhutan", "the Kingdom of Cambodia", "the Kingdom of Denmark", "the Kingdom of Eswatini", "the Kingdom of Lesotho", "the Kingdom of Morocco", "the Kingdom of Norway", "the Kingdom of Saudi Arabia", "the Kingdom of Spain", "the Kingdom of Sweden", "the Kingdom of Thailand", "the Kingdom of Tonga", "the Kyrgyz Republic", "the Lao People's Democratic Republic", "the Lebanese Republic", "the People's Democratic Republic of Algeria", "the People's Republic of Bangladesh", "the People's Republic of China", "the Plurinational State of Bolivia", "the Portuguese Republic", "the Principality of Andorra", "the Principality of Liechtenstein", "the Principality of Monaco", "the Republic of Albania", "the Republic of Angola", "the Republic of Armenia", "the Republic of Austria", "the Republic of Azerbaijan", "the Republic of Belarus", "the Republic of Benin", "the Republic of Botswana", "the Republic of Bulgaria", "the Republic of Burundi", "the Republic of Cabo Verde", "the Republic of Cameroon", "the Republic of Chad", "the Republic of Chile", "the Republic of Colombia", "the Republic of Costa Rica", "the Republic of Croatia", "the Republic of Cuba", "the Republic of Cyprus", "the Republic of C\u00f4te d'Ivoire", "the Republic of Djibouti", "the Republic of Ecuador", "the Republic of El Salvador", "the Republic of Equatorial Guinea", "the Republic of Estonia", "the Republic of Fiji", "the Republic of Finland", "the Republic of Ghana", "the Republic of Guatemala", "the Republic of Guinea", "the Republic of Guinea-Bissau", "the Republic of Haiti", "the Republic of Honduras", "the Republic of India", "the Republic of Indonesia", "the Republic of Iraq", "the Republic of Kazakhstan", "the Republic of Kenya", "the Republic of Kiribati", "the Republic of Korea", "the Republic of Latvia", "the Republic of Liberia", "the Republic of Lithuania", "the Republic of Madagascar", "the Republic of Malawi", "the Republic of Maldives", "the Republic of Mali", "the Republic of Malta", "the Republic of Mauritius", "the Republic of Moldova", "the Republic of Mozambique", "the Republic of Namibia", "the Republic of Nauru", "the Republic of Nicaragua", "the Republic of Palau", "the Republic of Panama", "the Republic of Paraguay", "the Republic of Peru", "the Republic of Poland", "the Republic of Rwanda", "the Republic of San Marino", "the Republic of Senegal", "the Republic of Serbia", "the Republic of Seychelles", "the Republic of Sierra Leone", "the Republic of Singapore", "the Republic of Slovenia", "the Republic of South Africa", "the Republic of South Sudan", "the Republic of Suriname", "the Republic of Tajikistan", "the Republic of The Gambia", "the Republic of Trinidad and Tobago", "the Republic of Tunisia", "the Republic of T\u00fcrkiye", "the Republic of Uganda", "the Republic of Uzbekistan", "the Republic of Vanuatu", "the Republic of Yemen", "the Republic of Zambia", "the Republic of Zimbabwe", "the Republic of the Congo", "the Republic of the Marshall Islands", "the Republic of the Niger", "the Republic of the Philippines", "the Republic of the Sudan", "the Russian Federation", "the Slovak Republic", "the Socialist Republic of Viet Nam", "the State of Eritrea", "the State of Israel", "the State of Kuwait", "the State of Qatar", "the Sultanate of Oman", "the Swiss Confederation", "the Syrian Arab Republic", "the Togolese Republic", "the Union of the Comoros", "the United Arab Emirates", "the United Kingdom of Great Britain and Northern Ireland", "the United Mexican States", "the United Republic of Tanzania", "the United States of America"];
+var pickerVals={nat:'',dest:''};
+var lastDestCountry='';
+
+function initPicker(inputId, dropId, key){
+  var inp=document.getElementById(inputId);
+  var drop=document.getElementById(dropId);
+  var highlighted=-1;
+
+  function score(country, query){
+    var c=country.toLowerCase(), q=query.toLowerCase();
+    if(c===q) return 100;
+    if(c.startsWith(q)) return 90;
+    // Strip leading "the " and check again
+    var cs=c.startsWith('the ')?c.slice(4):c;
+    if(cs.startsWith(q)) return 85;
+    // Any word in the country starts with query
+    var words=c.split(' ');
+    for(var i=1;i<words.length;i++){ if(words[i].startsWith(q)) return 80-i*2; }
+    // Substring anywhere
+    if(c.indexOf(q)>=0) return 50;
+    if(cs.indexOf(q)>=0) return 45;
+    return 0;
+  }
+
+  function renderDrop(query){
+    if(!query||query.length<1){drop.classList.remove('open');drop.innerHTML='';return;}
+    var results=COUNTRIES.map(function(c){return{c:c,s:score(c,query)};  })
+      .filter(function(x){return x.s>0;})
+      .sort(function(a,b){return b.s-a.s;})
+      .slice(0,10);
+    if(!results.length){
+      drop.innerHTML='<div class="cdrop-none">Nessun risultato</div>';
+      drop.classList.add('open'); highlighted=-1; return;
+    }
+    drop.innerHTML=results.map(function(x,i){
+      return '<div class="cdrop-item" data-val="'+x.c.replace(/"/g,'&quot;')+'" data-idx="'+i+'">'+x.c+'</div>';
+    }).join('');
+    drop.classList.add('open'); highlighted=-1;
+    drop.querySelectorAll('.cdrop-item').forEach(function(el){
+      el.addEventListener('mousedown',function(e){
+        e.preventDefault();
+        select(el.dataset.val);
+      });
+    });
+  }
+
+  function select(val){
+    inp.value=val;
+    pickerVals[key]=val;
+    drop.classList.remove('open');
+    drop.innerHTML='';
+    highlighted=-1;
+  }
+
+  inp.addEventListener('input',function(){
+    pickerVals[key]=inp.value;
+    renderDrop(inp.value);
+  });
+  inp.addEventListener('keydown',function(e){
+    var items=drop.querySelectorAll('.cdrop-item');
+    if(e.key==='ArrowDown'){
+      e.preventDefault();
+      highlighted=Math.min(highlighted+1,items.length-1);
+      items.forEach(function(el,i){el.classList.toggle('active',i===highlighted);});
+    } else if(e.key==='ArrowUp'){
+      e.preventDefault();
+      highlighted=Math.max(highlighted-1,0);
+      items.forEach(function(el,i){el.classList.toggle('active',i===highlighted);});
+    } else if(e.key==='Enter'&&highlighted>=0){
+      e.preventDefault();
+      if(items[highlighted]) select(items[highlighted].dataset.val);
+    } else if(e.key==='Escape'){
+      drop.classList.remove('open');
+    }
+  });
+  inp.addEventListener('blur',function(){
+    setTimeout(function(){drop.classList.remove('open');},150);
+  });
+}
+
+initPicker('cp-nat','cd-nat','nat');
+initPicker('cp-dest','cd-dest','dest');
+
+function updatePicker(){
+  var panel=document.getElementById('cpanel');
+  var anyDone=['pp','lp','maeci'].some(function(id){return extracted[id]!==null;});
+  if(anyDone) panel.classList.add('visible'); else panel.classList.remove('visible');
+  // Auto-fill nationality from passport OCR
+  var pp=extracted.pp;
+  if(pp&&!pp._err&&pp.countryName&&!document.getElementById('cp-nat').dataset.userEdited){
+    document.getElementById('cp-nat').value=pp.countryName;
+    pickerVals.nat=pp.countryName;
+  }
+}
+
+// Mark when user manually edits the field
+document.getElementById('cp-nat').addEventListener('input',function(){
+  this.dataset.userEdited='1';
+});
+
+
+document.getElementById('dlBtn').onclick=function(){
+  if(!lastBlob) return;
+  var sn=(extracted.pp&&!extracted.pp._err&&extracted.pp.surname)||'document';
+  function safeFilePart(s){ return (s||'').replace(/[^A-Za-z0-9 _-]/g,' ').replace(/\s+/g,'_').replace(/^_+|_+$/g,'').slice(0,40); }
+  // Destination: use the actual travel destination (not nationality)
+  // lastDestCountry is set during doc generation from the Country Official name SDT
+  var destCountry=lastDestCountry||'';
+  var fileDest=safeFilePart(destCountry);
+  var fileSn=safeFilePart(sn);
+  var fileName='To_whom_it_may_concern'+(fileDest?'_-_'+fileDest:'')+(fileSn?'_-_'+fileSn:'')+'.docx';
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(lastBlob);
+  a.download=fileName;
+  a.click();
+};
+</script>
+</body>
+</html>
